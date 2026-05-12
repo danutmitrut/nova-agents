@@ -157,6 +157,51 @@ else
   nova_ok "cortextOS engine installed and linked"
 fi
 
+# ─── PM2 (daemon process manager — cortextOS depends on it) ───────────────
+# cortextOS install.mjs tries to install PM2 via `npm install -g pm2` without
+# sudo. Same EACCES failure mode as npm link when npm prefix is /usr. Without
+# PM2, `cortextos start <agent>` cannot launch the daemon, so the whole
+# system never comes online. Auto-install with sudo if missing.
+nova_step "Checking PM2 (daemon process manager)"
+if command -v pm2 >/dev/null 2>&1; then
+  nova_ok "PM2 already installed ($(pm2 --version 2>/dev/null | head -1))"
+else
+  nova_say "PM2 not found — installing globally with sudo..."
+  nova_dim "PM2 keeps your agents alive 24/7. You may be asked for your Linux password."
+  sudo npm install -g pm2
+  hash -r 2>/dev/null || true
+  if ! command -v pm2 >/dev/null 2>&1; then
+    nova_fail "PM2 install with sudo failed. Run manually: sudo npm install -g pm2"
+  fi
+  nova_ok "PM2 installed ($(pm2 --version 2>/dev/null | head -1))"
+fi
+
+# ─── Python venv (Knowledge Base RAG depends on it) ───────────────────────
+# cortextOS bootstraps a Python venv at install.mjs for ChromaDB / RAG. On
+# Debian/Ubuntu, the venv module ships as a separate apt package (python3-venv
+# or python<MAJOR.MINOR>-venv). If missing, KB ingestion + query are broken —
+# but the agents themselves still run. Best-effort install; don't fail the
+# whole wizard if apt doesn't have a matching package.
+if [[ "$OS" == "linux" ]]; then
+  nova_step "Checking Python venv (Knowledge Base dependency)"
+  if python3 -m venv --help >/dev/null 2>&1; then
+    nova_ok "python3 venv module available"
+  else
+    PY_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null || echo "")
+    nova_say "python3 venv module missing — installing apt package..."
+    if [[ -n "$PY_VERSION" ]]; then
+      sudo apt-get install -y "python${PY_VERSION}-venv" 2>/dev/null \
+        || sudo apt-get install -y python3-venv 2>/dev/null \
+        || nova_warn "Could not install python venv via apt. Knowledge Base (RAG) will be disabled until fixed."
+    else
+      sudo apt-get install -y python3-venv 2>/dev/null \
+        || nova_warn "Could not install python3-venv via apt. Knowledge Base (RAG) will be disabled until fixed."
+    fi
+    python3 -m venv --help >/dev/null 2>&1 && nova_ok "python3 venv module now available" \
+      || nova_warn "python venv still missing — KB will be disabled until 'sudo apt install python3-venv' succeeds."
+  fi
+fi
+
 # ─── Final summary ────────────────────────────────────────────────────────
 echo ""
 echo -e "${PURPLE}╭──────────────────────────────────────────╮${RESET}"
@@ -167,6 +212,7 @@ echo "Versions confirmed:"
 echo "  Node.js:        $(node --version)"
 echo "  Claude Code:    $(claude --version 2>/dev/null | head -1 || echo 'installed')"
 echo "  cortextOS:      $(cortextos --version 2>/dev/null | head -1 || echo 'installed')"
+echo "  PM2:            $(pm2 --version 2>/dev/null | head -1 || echo 'installed')"
 echo "  jq:             $(jq --version)"
 echo ""
 echo "Next: run ${BOLD}bash nova-init.sh${RESET} to set up your first Nova Cortex agents."
