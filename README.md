@@ -32,12 +32,16 @@ bash nova-init.sh
 **Windows** PowerShell (native — not WSL):
 
 ```powershell
+# Open PowerShell as Administrator (required — see below)
 git clone https://github.com/<your-fork>/nova-agents.git
 cd nova-agents
-.\nova-init.ps1
+.\nova-prereq.ps1   # installs VS Build Tools + jq + Python + Node + Claude + cortextOS + PM2
+.\nova-init.ps1     # wizard (can run from regular PowerShell after prereq passes)
 ```
 
-> WSL2 is not supported. Nova Cortex runs natively on Windows via PowerShell — the cortextOS engine and Claude Code's PTY have edge cases under WSL that don't have clean fixes.
+> **PowerShell must be Administrator** when running `nova-prereq.ps1` — winget needs admin rights to install Visual Studio Build Tools, jq, and Python globally. After prereq, `nova-init.ps1` runs fine from a regular PowerShell. The script halts with clear instructions if started without admin.
+
+> **WSL2 is not supported.** Nova Cortex runs natively on Windows via PowerShell — the cortextOS engine and Claude Code's PTY have edge cases under WSL that don't have clean fixes.
 
 Both wizards will:
 1. Run the prereq script if needed — installs Node.js 20+, Claude Code CLI, cortextOS engine, PM2 (and Homebrew on Mac, `jq` on Linux).
