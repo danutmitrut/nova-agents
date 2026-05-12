@@ -1,0 +1,20 @@
+# Secrets and credentials
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+secrets.env
+
+# Test artifacts and local state
+*.log
+.DS_Store
+.tmp/
+*.tmp
+
+# Local user installations (for testing the wizard)
+.nova-test/
+test-org/
+
+# OS-specific
+Thumbs.db
