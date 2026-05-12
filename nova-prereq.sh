@@ -130,12 +130,31 @@ if command -v cortextos >/dev/null 2>&1; then
   nova_ok "cortextOS already installed ($(cortextos --version 2>/dev/null | head -1 || echo 'version unknown'))"
 else
   nova_say "Installing cortextOS engine..."
-  nova_dim "Powered by cortextOS — open-source multi-agent framework by Cortext LLC (MIT). https://github.com/grandamenium/cortextos"
+  nova_dim "Powered by cortextOS — open-source multi-agent framework by Cortext LLC (MIT)."
   curl -fsSL https://raw.githubusercontent.com/grandamenium/cortextos/main/install.mjs | node
+
+  # cortextOS install.mjs does `npm link` without sudo. On apt-installed Node where
+  # npm prefix is /usr (writes need root), the link silently fails and `cortextos`
+  # never lands on PATH. Detect that case and re-run with sudo so students don't
+  # bounce out of the wizard.
   if ! command -v cortextos >/dev/null 2>&1; then
-    nova_fail "cortextOS installed but the 'cortextos' command is not on PATH yet. Open a new terminal window and re-run this script."
+    nova_warn "cortextOS installed but 'cortextos' is not on PATH yet."
+    nova_dim "Most likely cause: npm link needs sudo when the npm prefix is /usr."
+    CORTEXTOS_DIR="${CORTEXTOS_DIR:-$HOME/cortextos}"
+    if [[ -d "$CORTEXTOS_DIR" ]]; then
+      nova_say "Re-linking with sudo (you may be asked for your Linux password)..."
+      (cd "$CORTEXTOS_DIR" && sudo npm link)
+      # `sudo npm link` may write the symlink mid-shell; verify both directly and
+      # via command -v, since command -v caches.
+      hash -r 2>/dev/null || true
+      if ! command -v cortextos >/dev/null 2>&1; then
+        nova_fail "Still no cortextos on PATH after sudo npm link. Open a new terminal and re-run; if it still fails, run manually: cd $CORTEXTOS_DIR && sudo npm link"
+      fi
+    else
+      nova_fail "cortextOS install dir not found at $CORTEXTOS_DIR. Re-run the cortextOS install: curl -fsSL https://raw.githubusercontent.com/grandamenium/cortextos/main/install.mjs | node"
+    fi
   fi
-  nova_ok "cortextOS engine installed"
+  nova_ok "cortextOS engine installed and linked"
 fi
 
 # ─── Final summary ────────────────────────────────────────────────────────

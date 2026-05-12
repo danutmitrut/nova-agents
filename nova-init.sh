@@ -34,6 +34,26 @@ nova_dim()  { echo -e "    ${DIM}$*${RESET}"; }
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# ─── Refuse to run from a Windows mount under WSL ─────────────────────────
+# Paths under /mnt/c (or any /mnt/<letter>) are Windows drives mounted into Linux.
+# They have restricted perms and slow I/O — git clone, npm install, and cortextOS
+# state all break in subtle ways. Force the student to a Linux-native path first.
+if [[ "$SCRIPT_DIR" =~ ^/mnt/[a-z]/ ]]; then
+  echo ""
+  echo -e "  ${RED}✗${RESET} You're running from a Windows-mounted folder:"
+  echo -e "      ${DIM}$SCRIPT_DIR${RESET}"
+  echo ""
+  echo "  This path has restricted permissions under WSL and will fail during install."
+  echo "  Run from your Linux home instead:"
+  echo ""
+  echo -e "      ${CYAN}cd ~${RESET}"
+  echo -e "      ${CYAN}git clone https://github.com/danutmitrut/nova-agents.git${RESET}"
+  echo -e "      ${CYAN}cd nova-agents${RESET}"
+  echo -e "      ${CYAN}bash nova-init.sh${RESET}"
+  echo ""
+  exit 1
+fi
+
 # ─── Welcome screen ───────────────────────────────────────────────────────
 clear 2>/dev/null || true
 echo -e "${PURPLE}"
@@ -49,7 +69,7 @@ echo -e "${RESET}"
 echo -e "  ${BOLD}Welcome to Nova Cortex${RESET}"
 echo -e "  ${DIM}Multi-agent AI workforce for your business${RESET}"
 echo ""
-echo -e "  ${DIM}Powered by cortextOS engine (https://github.com/grandamenium/cortextos)${RESET}"
+echo -e "  ${DIM}Powered by cortextOS engine${RESET}"
 echo ""
 
 # ─── Run prereq check if cortextOS is missing ────────────────────────────
