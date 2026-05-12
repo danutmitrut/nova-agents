@@ -29,22 +29,26 @@ cd nova-agents
 bash nova-init.sh
 ```
 
-**Windows:** install [WSL2](https://learn.microsoft.com/windows/wsl/install) first (5-min one-time setup, gives you Ubuntu inside Windows), open the Ubuntu terminal, then follow the Linux instructions above.
+**Windows** PowerShell (native — not WSL):
 
-`nova-init.sh` will:
-1. Run `nova-prereq.sh` if needed — installs Homebrew (mac), `jq`, Node.js 20+, the Claude Code CLI, and cortextOS.
-2. Walk you through a 2-step wizard: workspace name → drop in your Telegram bot token.
-3. Install the Nova Cortex templates and spawn your Orchestrator, wired to Telegram.
+```powershell
+git clone https://github.com/<your-fork>/nova-agents.git
+cd nova-agents
+.\nova-init.ps1
+```
+
+> WSL2 is not supported. Nova Cortex runs natively on Windows via PowerShell — the cortextOS engine and Claude Code's PTY have edge cases under WSL that don't have clean fixes.
+
+Both wizards will:
+1. Run the prereq script if needed — installs Node.js 20+, Claude Code CLI, cortextOS engine, PM2 (and Homebrew on Mac, `jq` on Linux).
+2. Walk you through a 3-step wizard: workspace name → Telegram bot token → handshake (you send a message to the bot, the wizard reads the `chat_id` + your `user_id` automatically).
+3. Install the Nova Cortex templates, spawn your Orchestrator, wire up Telegram, and auto-start the agent.
 
 You'll need **two BotFather tokens** total: one for the Orchestrator (asked here), one for the Analyst (asked later by the Orchestrator during `/onboarding`). Create both ahead of time from `@BotFather` on Telegram if you want a smooth flow.
 
-### 2. Start your Orchestrator
+Before running the wizard, you'll also need to run `claude` interactively once to log in to Claude Code (the wizard reminds you if you haven't).
 
-```bash
-cortextos start boss
-```
-
-### 3. Send a message
+### 2. Send a message
 
 Open Telegram → find the bot you connected → say `hello`. Then send:
 
@@ -54,15 +58,29 @@ Open Telegram → find the bot you connected → say `hello`. Then send:
 
 The Orchestrator will walk you through identity, working hours, autonomy rules, daily goal cascade — and then ask you for the second BotFather token to bring the Analyst online. After that, you have a working 2-agent team and the Orchestrator can help you add specialist agents whenever you're ready.
 
+### Restarting the Orchestrator later
+
+If you ever need to manually restart the agent:
+
+```bash
+# Mac/Linux:
+cd ~/cortextos && cortextos start boss
+
+# Windows PowerShell:
+cd $env:USERPROFILE\cortextos; cortextos start boss
+```
+
 ---
 
 ## What's in this repo
 
 | Path | Purpose |
 |------|---------|
-| `nova-prereq.sh` | Detects OS + auto-installs dependencies (Homebrew, jq, Node 20+, Claude Code, cortextOS). Idempotent. |
-| `nova-init.sh` | The student wizard. Picks workspace name + Telegram token, then provisions the Orchestrator. |
-| `templates/nova-cortex-orchestrator/` | Branded Orchestrator template — installed into `$HOME/cortextos/templates/` by `nova-init.sh`. |
+| `nova-prereq.sh` | Mac/Linux prereq checker — auto-installs Homebrew (Mac), jq, Node 20+, Claude Code, cortextOS, PM2. Idempotent. |
+| `nova-prereq.ps1` | Windows-native equivalent (PowerShell 5.1+). Installs Node via `winget`, Claude Code + cortextOS + PM2 via npm. Idempotent. |
+| `nova-init.sh` | Mac/Linux student wizard. Picks workspace name + Telegram token, then provisions the Orchestrator. |
+| `nova-init.ps1` | Windows-native wizard (PowerShell). Same 3-step flow as the bash version. |
+| `templates/nova-cortex-orchestrator/` | Branded Orchestrator template — installed into `$HOME/cortextos/templates/` by either init script. |
 | `templates/nova-cortex-analyst/` | Branded Analyst template — installed alongside, spawned by the Orchestrator during `/onboarding`. |
 | `LICENSE` | MIT, with cortextOS attribution. |
 
