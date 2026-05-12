@@ -1,4 +1,4 @@
-# nova-prereq.ps1 — Verificare prerequisites Nova Cortex pe Windows nativ + auto-install.
+﻿# nova-prereq.ps1 — Verificare prerequisites Nova Cortex pe Windows nativ + auto-install.
 #
 # Rulează înainte de nova-init.ps1. Detectează versiunea de Windows + PowerShell,
 # instalează tool-urile lipsă. Idempotent: safe de rerulat.

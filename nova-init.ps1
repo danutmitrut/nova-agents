@@ -1,4 +1,4 @@
-# nova-init.ps1 — Configurează primii tăi agenți Nova Cortex (Windows nativ).
+﻿# nova-init.ps1 — Configurează primii tăi agenți Nova Cortex (Windows nativ).
 #
 # Rulează verificarea de prereq (nova-prereq.ps1) dacă cortextOS lipsește, apoi
 # ghidează utilizatorul prin setup-ul Nova Cortex:
