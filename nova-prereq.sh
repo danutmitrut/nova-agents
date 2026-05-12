@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# nova-prereq.sh — Nova Cortex prerequisites check + auto-install.
+# nova-prereq.sh — Verificare prerequisites Nova Cortex + auto-install.
 #
-# Run before nova-init.sh. Detects OS, installs missing tools.
-# Idempotent: safe to re-run; already-installed deps are skipped.
+# Rulează înainte de nova-init.sh. Detectează OS, instalează tool-urile lipsă.
+# Idempotent: safe de rerulat; dependențele deja instalate sunt sărite.
 #
-# Supported: macOS, Linux (Debian/Ubuntu via apt). Windows users must install
-# WSL2 first and run this inside the Linux shell.
+# Suportat: macOS, Linux (Debian/Ubuntu via apt). Userii Windows trebuie să
+# instaleze WSL2 întâi și să ruleze acest script în shell-ul Linux.
 
 set -e
 
-# ─── Branded output helpers ───────────────────────────────────────────────
+# ─── Helper-i de output branded ───────────────────────────────────────────
 PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 GREEN='\033[0;32m'
@@ -26,8 +26,8 @@ nova_fail() { echo -e "  ${RED}✗${RESET} $*" >&2; exit 1; }
 nova_step() { echo ""; echo -e "${CYAN}─── $* ───${RESET}"; }
 nova_dim()  { echo -e "    ${DIM}$*${RESET}"; }
 
-# ─── Detect OS ────────────────────────────────────────────────────────────
-nova_step "Detecting your system"
+# ─── Detectează OS ────────────────────────────────────────────────────────
+nova_step "Detectez sistemul tău"
 
 OS="unknown"
 case "$(uname -s)" in
@@ -38,182 +38,182 @@ esac
 
 case "$OS" in
   mac)
-    nova_ok "macOS detected"
+    nova_ok "macOS detectat"
     PKG_INSTALL="brew install"
     ;;
   linux)
-    nova_ok "Linux detected"
+    nova_ok "Linux detectat"
     if command -v apt-get >/dev/null 2>&1; then
       PKG_INSTALL="sudo apt-get install -y"
     else
-      nova_fail "Linux package manager not supported yet. Nova Cortex currently auto-installs only on apt-based Linux (Ubuntu/Debian)."
+      nova_fail "Package manager Linux nu e încă suportat. Nova Cortex auto-instalează deocamdată doar pe Linux apt-based (Ubuntu/Debian)."
     fi
     ;;
   windows)
-    nova_fail "Nova Cortex does not run natively on Windows. Please install WSL2 (https://learn.microsoft.com/windows/wsl/install) and run this script inside the Linux shell."
+    nova_fail "Nova Cortex nu rulează nativ pe Windows. Instalează WSL2 (https://learn.microsoft.com/windows/wsl/install) și rulează acest script în shell-ul Linux."
     ;;
   *)
-    nova_fail "Unknown operating system. Nova Cortex supports macOS and Linux."
+    nova_fail "Sistem de operare necunoscut. Nova Cortex suportă macOS și Linux."
     ;;
 esac
 
-# ─── Homebrew (macOS only) ────────────────────────────────────────────────
+# ─── Homebrew (doar macOS) ────────────────────────────────────────────────
 if [[ "$OS" == "mac" ]]; then
-  nova_step "Checking Homebrew (macOS package manager)"
+  nova_step "Verific Homebrew (package manager pentru macOS)"
   if command -v brew >/dev/null 2>&1; then
-    nova_ok "Homebrew already installed ($(brew --version | head -1))"
+    nova_ok "Homebrew deja instalat ($(brew --version | head -1))"
   else
-    nova_say "Homebrew not found. Installing now (this is the foundation tool — takes ~5 minutes)"
-    nova_dim "macOS will ask for your password. This is normal — Homebrew needs admin permission."
+    nova_say "Homebrew nu există. Îl instalez acum (tool de bază — ~5 minute)"
+    nova_dim "macOS îți va cere parola. E normal — Homebrew are nevoie de permisiuni admin."
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    # Ensure brew is on PATH for the rest of this session (Apple Silicon installs to /opt/homebrew)
+    # Asigură că brew e pe PATH în restul sesiunii (Apple Silicon: /opt/homebrew)
     if [[ -x /opt/homebrew/bin/brew ]]; then
       eval "$(/opt/homebrew/bin/brew shellenv)"
     elif [[ -x /usr/local/bin/brew ]]; then
       eval "$(/usr/local/bin/brew shellenv)"
     fi
-    command -v brew >/dev/null 2>&1 || nova_fail "Homebrew install succeeded but brew is not on PATH. Open a new terminal and re-run this script."
-    nova_ok "Homebrew installed"
+    command -v brew >/dev/null 2>&1 || nova_fail "Instalarea Homebrew a reușit dar brew nu e pe PATH. Deschide un terminal nou și rulează din nou acest script."
+    nova_ok "Homebrew instalat"
   fi
 fi
 
-# ─── jq (JSON parser used by Nova Cortex + cortextOS shell scripts) ──────────────
-nova_step "Checking jq (JSON tool)"
+# ─── jq (parser JSON folosit de Nova Cortex + cortextOS shell scripts) ────
+nova_step "Verific jq (tool JSON)"
 if command -v jq >/dev/null 2>&1; then
-  nova_ok "jq already installed ($(jq --version))"
+  nova_ok "jq deja instalat ($(jq --version))"
 else
-  nova_say "Installing jq..."
+  nova_say "Instalez jq..."
   $PKG_INSTALL jq
-  nova_ok "jq installed"
+  nova_ok "jq instalat"
 fi
 
 # ─── Node.js 20+ ──────────────────────────────────────────────────────────
-nova_step "Checking Node.js (runtime for Nova Cortex agents)"
+nova_step "Verific Node.js (runtime pentru agenții Nova Cortex)"
 node_ok=0
 if command -v node >/dev/null 2>&1; then
   NODE_MAJOR=$(node -p "process.versions.node.split('.')[0]" 2>/dev/null || echo "0")
   if [[ "$NODE_MAJOR" -ge 20 ]]; then
-    nova_ok "Node.js $(node --version) — meets requirement (>=20)"
+    nova_ok "Node.js $(node --version) — îndeplinește cerința (>=20)"
     node_ok=1
   else
-    nova_warn "Node.js $(node --version) is older than v20 — upgrading"
+    nova_warn "Node.js $(node --version) e mai vechi decât v20 — fac upgrade"
   fi
 fi
 
 if [[ $node_ok -eq 0 ]]; then
-  nova_say "Installing Node.js 20+..."
+  nova_say "Instalez Node.js 20+..."
   if [[ "$OS" == "mac" ]]; then
     brew install node@20
     brew link --overwrite node@20 || true
   else
-    # Node v20 via NodeSource on apt-based systems
+    # Node v20 via NodeSource pe sisteme apt-based
     curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
     sudo apt-get install -y nodejs
   fi
-  nova_ok "Node.js installed ($(node --version))"
+  nova_ok "Node.js instalat ($(node --version))"
 fi
 
 # ─── Claude Code CLI ──────────────────────────────────────────────────────
-nova_step "Checking Claude Code CLI (your AI agents need this to think)"
+nova_step "Verific Claude Code CLI (agenții AI au nevoie ca să gândească)"
 if command -v claude >/dev/null 2>&1; then
-  nova_ok "Claude Code already installed ($(claude --version 2>/dev/null | head -1))"
+  nova_ok "Claude Code deja instalat ($(claude --version 2>/dev/null | head -1))"
 else
-  nova_say "Installing Claude Code CLI..."
+  nova_say "Instalez Claude Code CLI..."
   npm install -g @anthropic-ai/claude-code
-  nova_ok "Claude Code installed"
-  nova_dim "You will need to authenticate with 'claude' (one-time) before agents can talk to Anthropic."
+  nova_ok "Claude Code instalat"
+  nova_dim "Va trebui să te autentifici cu 'claude' (o singură dată) înainte ca agenții să vorbească cu Anthropic."
 fi
 
 # ─── cortextOS engine ─────────────────────────────────────────────────────
-nova_step "Checking cortextOS (the engine Nova Cortex runs on)"
+nova_step "Verific cortextOS (motorul pe care rulează Nova Cortex)"
 if command -v cortextos >/dev/null 2>&1; then
-  nova_ok "cortextOS already installed ($(cortextos --version 2>/dev/null | head -1 || echo 'version unknown'))"
+  nova_ok "cortextOS deja instalat ($(cortextos --version 2>/dev/null | head -1 || echo 'versiune necunoscută'))"
 else
-  nova_say "Installing cortextOS engine..."
-  nova_dim "Powered by cortextOS — open-source multi-agent framework by Cortext LLC (MIT)."
+  nova_say "Instalez motorul cortextOS..."
+  nova_dim "Powered by cortextOS — framework open-source multi-agent de la Cortext LLC (MIT)."
   curl -fsSL https://raw.githubusercontent.com/grandamenium/cortextos/main/install.mjs | node
 
-  # cortextOS install.mjs does `npm link` without sudo. On apt-installed Node where
-  # npm prefix is /usr (writes need root), the link silently fails and `cortextos`
-  # never lands on PATH. Detect that case and re-run with sudo so students don't
-  # bounce out of the wizard.
+  # cortextOS install.mjs face `npm link` fără sudo. Pe Node instalat via apt unde
+  # npm prefix=/usr (scrie cere root), link-ul eșuează silent și `cortextos` nu
+  # ajunge pe PATH. Detectează cazul ăsta și re-rulează cu sudo ca studenții să
+  # nu cadă din wizard.
   if ! command -v cortextos >/dev/null 2>&1; then
-    nova_warn "cortextOS installed but 'cortextos' is not on PATH yet."
-    nova_dim "Most likely cause: npm link needs sudo when the npm prefix is /usr."
+    nova_warn "cortextOS instalat dar 'cortextos' nu e încă pe PATH."
+    nova_dim "Cauză probabilă: npm link are nevoie de sudo când npm prefix=/usr."
     CORTEXTOS_DIR="${CORTEXTOS_DIR:-$HOME/cortextos}"
     if [[ -d "$CORTEXTOS_DIR" ]]; then
-      nova_say "Re-linking with sudo (you may be asked for your Linux password)..."
+      nova_say "Re-link cu sudo (s-ar putea să-ți ceară parola Linux)..."
       (cd "$CORTEXTOS_DIR" && sudo npm link)
-      # `sudo npm link` may write the symlink mid-shell; verify both directly and
-      # via command -v, since command -v caches.
+      # `sudo npm link` poate scrie symlink-ul mid-shell; verifică direct și
+      # via command -v, pentru că command -v cache-uiește.
       hash -r 2>/dev/null || true
       if ! command -v cortextos >/dev/null 2>&1; then
-        nova_fail "Still no cortextos on PATH after sudo npm link. Open a new terminal and re-run; if it still fails, run manually: cd $CORTEXTOS_DIR && sudo npm link"
+        nova_fail "cortextos tot lipsește de pe PATH după sudo npm link. Deschide un terminal nou și re-rulează; dacă tot eșuează, rulează manual: cd $CORTEXTOS_DIR && sudo npm link"
       fi
     else
-      nova_fail "cortextOS install dir not found at $CORTEXTOS_DIR. Re-run the cortextOS install: curl -fsSL https://raw.githubusercontent.com/grandamenium/cortextos/main/install.mjs | node"
+      nova_fail "Directorul de instalare cortextOS nu există la $CORTEXTOS_DIR. Re-rulează install-ul cortextOS: curl -fsSL https://raw.githubusercontent.com/grandamenium/cortextos/main/install.mjs | node"
     fi
   fi
-  nova_ok "cortextOS engine installed and linked"
+  nova_ok "Motorul cortextOS instalat și linkat"
 fi
 
-# ─── PM2 (daemon process manager — cortextOS depends on it) ───────────────
-# cortextOS install.mjs tries to install PM2 via `npm install -g pm2` without
-# sudo. Same EACCES failure mode as npm link when npm prefix is /usr. Without
-# PM2, `cortextos start <agent>` cannot launch the daemon, so the whole
-# system never comes online. Auto-install with sudo if missing.
-nova_step "Checking PM2 (daemon process manager)"
+# ─── PM2 (manager de proces pentru daemon — cortextOS depinde de el) ──────
+# cortextOS install.mjs încearcă să instaleze PM2 via `npm install -g pm2` fără
+# sudo. Aceeași eroare EACCES ca npm link când npm prefix=/usr. Fără PM2,
+# `cortextos start <agent>` nu poate porni daemon-ul, deci sistemul nu intră
+# în online. Auto-instalează cu sudo dacă lipsește.
+nova_step "Verific PM2 (manager de proces pentru daemon)"
 if command -v pm2 >/dev/null 2>&1; then
-  nova_ok "PM2 already installed ($(pm2 --version 2>/dev/null | head -1))"
+  nova_ok "PM2 deja instalat ($(pm2 --version 2>/dev/null | head -1))"
 else
-  nova_say "PM2 not found — installing globally with sudo..."
-  nova_dim "PM2 keeps your agents alive 24/7. You may be asked for your Linux password."
+  nova_say "PM2 lipsește — îl instalez global cu sudo..."
+  nova_dim "PM2 ține agenții tăi vii 24/7. S-ar putea să-ți ceară parola Linux."
   sudo npm install -g pm2
   hash -r 2>/dev/null || true
   if ! command -v pm2 >/dev/null 2>&1; then
-    nova_fail "PM2 install with sudo failed. Run manually: sudo npm install -g pm2"
+    nova_fail "Instalarea PM2 cu sudo a eșuat. Rulează manual: sudo npm install -g pm2"
   fi
-  nova_ok "PM2 installed ($(pm2 --version 2>/dev/null | head -1))"
+  nova_ok "PM2 instalat ($(pm2 --version 2>/dev/null | head -1))"
 fi
 
-# ─── Python venv (Knowledge Base RAG depends on it) ───────────────────────
-# cortextOS bootstraps a Python venv at install.mjs for ChromaDB / RAG. On
-# Debian/Ubuntu, the venv module ships as a separate apt package (python3-venv
-# or python<MAJOR.MINOR>-venv). If missing, KB ingestion + query are broken —
-# but the agents themselves still run. Best-effort install; don't fail the
-# whole wizard if apt doesn't have a matching package.
+# ─── Python venv (Knowledge Base RAG depinde de el) ───────────────────────
+# cortextOS bootstraps un venv Python în install.mjs pentru ChromaDB / RAG. Pe
+# Debian/Ubuntu, modulul venv vine ca pachet apt separat (python3-venv sau
+# python<MAJOR.MINOR>-venv). Dacă lipsește, ingestion-ul + query-ul KB sunt
+# stricate — dar agenții în sine tot rulează. Best-effort install; nu eșuează
+# tot wizard-ul dacă apt nu are pachetul potrivit.
 if [[ "$OS" == "linux" ]]; then
-  nova_step "Checking Python venv (Knowledge Base dependency)"
+  nova_step "Verific Python venv (dependență Knowledge Base)"
   if python3 -m venv --help >/dev/null 2>&1; then
-    nova_ok "python3 venv module available"
+    nova_ok "Modulul python3 venv disponibil"
   else
     PY_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null || echo "")
-    nova_say "python3 venv module missing — installing apt package..."
+    nova_say "Modulul python3 venv lipsește — instalez pachetul apt..."
     if [[ -n "$PY_VERSION" ]]; then
       sudo apt-get install -y "python${PY_VERSION}-venv" 2>/dev/null \
         || sudo apt-get install -y python3-venv 2>/dev/null \
-        || nova_warn "Could not install python venv via apt. Knowledge Base (RAG) will be disabled until fixed."
+        || nova_warn "Nu am putut instala python venv via apt. Knowledge Base (RAG) va fi dezactivat până se repară."
     else
       sudo apt-get install -y python3-venv 2>/dev/null \
-        || nova_warn "Could not install python3-venv via apt. Knowledge Base (RAG) will be disabled until fixed."
+        || nova_warn "Nu am putut instala python3-venv via apt. Knowledge Base (RAG) va fi dezactivat până se repară."
     fi
-    python3 -m venv --help >/dev/null 2>&1 && nova_ok "python3 venv module now available" \
-      || nova_warn "python venv still missing — KB will be disabled until 'sudo apt install python3-venv' succeeds."
+    python3 -m venv --help >/dev/null 2>&1 && nova_ok "Modulul python3 venv acum disponibil" \
+      || nova_warn "Python venv tot lipsește — KB va fi dezactivat până când 'sudo apt install python3-venv' reușește."
   fi
 fi
 
-# ─── Final summary ────────────────────────────────────────────────────────
+# ─── Sumar final ──────────────────────────────────────────────────────────
 echo ""
 echo -e "${PURPLE}╭──────────────────────────────────────────╮${RESET}"
-echo -e "${PURPLE}│${RESET}  ${BOLD}Nova Cortex toolbox ready${RESET}                      ${PURPLE}│${RESET}"
+echo -e "${PURPLE}│${RESET}  ${BOLD}Toolbox Nova Cortex gata${RESET}                      ${PURPLE}│${RESET}"
 echo -e "${PURPLE}╰──────────────────────────────────────────╯${RESET}"
 echo ""
-echo "Versions confirmed:"
+echo "Versiuni confirmate:"
 echo "  Node.js:        $(node --version)"
-echo "  Claude Code:    $(claude --version 2>/dev/null | head -1 || echo 'installed')"
-echo "  cortextOS:      $(cortextos --version 2>/dev/null | head -1 || echo 'installed')"
-echo "  PM2:            $(pm2 --version 2>/dev/null | head -1 || echo 'installed')"
+echo "  Claude Code:    $(claude --version 2>/dev/null | head -1 || echo 'instalat')"
+echo "  cortextOS:      $(cortextos --version 2>/dev/null | head -1 || echo 'instalat')"
+echo "  PM2:            $(pm2 --version 2>/dev/null | head -1 || echo 'instalat')"
 echo "  jq:             $(jq --version)"
 echo ""
-echo "Next: run ${BOLD}bash nova-init.sh${RESET} to set up your first Nova Cortex agents."
+echo "Următor: rulează ${BOLD}bash nova-init.sh${RESET} ca să configurezi primii agenți Nova Cortex."
 echo ""
