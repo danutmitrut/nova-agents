@@ -286,7 +286,7 @@ if (Get-Command cortextos -ErrorAction SilentlyContinue) {
   Nova-Dim "Powered by cortextOS — framework open-source multi-agent de la Cortext LLC (MIT)."
   # install.mjs e ESM (top-level await, import.meta) — `node -e` cu eval rupe pentru ESM.
   # Descarcam intai la disk, apoi rulam `node fisier.mjs` ca sa primim parsing ESM corect.
-  $installerUrl = 'https://raw.githubusercontent.com/grandamenium/cortextos/main/install.mjs'
+  $installerUrl = 'https://raw.githubusercontent.com/danutmitrut/cortextos/main/install.mjs'
   $installerTmp = Join-Path $env:TEMP "cortextos-install-$([guid]::NewGuid()).mjs"
   try {
     Invoke-WebRequest -Uri $installerUrl -OutFile $installerTmp -UseBasicParsing -ErrorAction Stop

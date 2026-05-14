@@ -206,7 +206,7 @@ if command -v cortextos >/dev/null 2>&1; then
 else
   nova_say "Instalez motorul cortextOS..."
   nova_dim "Powered by cortextOS — framework open-source multi-agent de la Cortext LLC (MIT)."
-  curl -fsSL https://raw.githubusercontent.com/grandamenium/cortextos/main/install.mjs | node
+  curl -fsSL https://raw.githubusercontent.com/danutmitrut/cortextos/main/install.mjs | node
 
   # cortextOS install.mjs face `npm link` fără sudo. Pe Node instalat via apt unde
   # npm prefix=/usr (scrie cere root), link-ul eșuează silent și `cortextos` nu
@@ -226,7 +226,7 @@ else
         nova_fail "cortextos tot lipsește de pe PATH după sudo npm link. Deschide un terminal nou și re-rulează; dacă tot eșuează, rulează manual: cd $CORTEXTOS_DIR && sudo npm link"
       fi
     else
-      nova_fail "Directorul de instalare cortextOS nu există la $CORTEXTOS_DIR. Re-rulează install-ul cortextOS: curl -fsSL https://raw.githubusercontent.com/grandamenium/cortextos/main/install.mjs | node"
+      nova_fail "Directorul de instalare cortextOS nu există la $CORTEXTOS_DIR. Re-rulează install-ul cortextOS: curl -fsSL https://raw.githubusercontent.com/danutmitrut/cortextos/main/install.mjs | node"
     fi
   fi
   nova_ok "Motorul cortextOS instalat și linkat"
