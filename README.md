@@ -1,6 +1,6 @@
 # Nova Cortex
 
-**Multi-agent AI workforce for your business.** A curated team of always-on Claude Code agents — Orchestrator + Analyst — controlled from Telegram, running on your own machine. Specialist agents (CFO, marketer, ops, research, anything you need) you spawn yourself once the core is online.
+**Multi-agent AI workforce for your business.** A curated team of always-on agents — Orchestrator + Analyst — controlled from Telegram or Slack, running on your own machine or server. Mac/Linux installs can run on **Codex/OpenAI** (`codex-app-server`) or Claude Code; specialist agents (CFO, marketer, ops, research, storytelling, copywriting, anything you need) are spawned once the core is online.
 
 Built on top of the [cortextOS engine](https://github.com/grandamenium/cortextos) (open-source multi-agent framework, MIT).
 
@@ -10,7 +10,8 @@ Built on top of the [cortextOS engine](https://github.com/grandamenium/cortextos
 
 - **Nova Cortex Orchestrator** — your chief of staff. Sends morning + evening briefings, cascades daily goals to your team, monitors fleet health, surfaces approvals to you.
 - **Nova Cortex Analyst** — the orchestrator's analytical partner. Monitors system health, runs the theta-wave improvement cycle, detects anomalies, tracks KPIs across your fleet.
-- **Telegram control** — message your team from anywhere, they keep working overnight.
+- **Codex/OpenAI runtime** — recommended for the course path; Claude Code remains supported as a compatibility option.
+- **Telegram or Slack control** — message your team from anywhere, they keep working overnight.
 - **Persistent state** — auto-restart on crash, conversation memory across sessions, knowledge base (RAG) shared across agents.
 
 Specialist agents (anything domain-specific you need) are added later — the Orchestrator helps you spawn them on demand once the core pair is online. Nova Academy's course walks through this.
@@ -18,6 +19,14 @@ Specialist agents (anything domain-specific you need) are added later — the Or
 ---
 
 ## Quick start
+
+Pentru curs, instalarea are trei decizii:
+
+1. **Runtime:** Codex/OpenAI (recomandat) sau Claude Code.
+2. **Locatie:** local pentru test/dezvoltare sau server pentru agenti always-on.
+3. **Canal:** Telegram sau Slack.
+
+Ghidul complet este in [`docs/installation-options.md`](docs/installation-options.md). Pentru Slack, foloseste si [`docs/slack-onboarding.md`](docs/slack-onboarding.md). Pentru validarea pe Windows, foloseste [`docs/windows-test-plan.md`](docs/windows-test-plan.md).
 
 ### 1. Install
 
@@ -43,18 +52,38 @@ cd nova-agents
 
 > **WSL2 is not supported.** Nova Cortex runs natively on Windows via PowerShell — the cortextOS engine and Claude Code's PTY have edge cases under WSL that don't have clean fixes.
 
-Both wizards will:
-1. Run the prereq script if needed — installs Node.js 20+, Claude Code CLI, cortextOS engine, PM2 (and Homebrew on Mac, `jq` on Linux).
-2. Walk you through a 3-step wizard: workspace name → Telegram bot token → handshake (you send a message to the bot, the wizard reads the `chat_id` + your `user_id` automatically).
-3. Install the Nova Cortex templates, spawn your Orchestrator, wire up Telegram, and auto-start the agent.
+The Mac/Linux wizard will:
+1. Ask which runtime you want: Codex/OpenAI (recommended) or Claude Code.
+2. Run the prereq script — installs Node.js 20+, the selected AI CLI (`codex` or `claude`), cortextOS engine, PM2 (and Homebrew on Mac, `jq` on Linux).
+3. Walk you through a wizard: workspace name → control channel → Telegram bot handshake or Slack Socket Mode tokens.
+4. Install the Nova Cortex templates, spawn your Orchestrator, wire up the selected channel, and auto-start the agent.
 
-You'll need **two BotFather tokens** total: one for the Orchestrator (asked here), one for the Analyst (asked later by the Orchestrator during `/onboarding`). Create both ahead of time from `@BotFather` on Telegram if you want a smooth flow.
+The Windows PowerShell wizard currently follows the original Telegram flow.
 
-Before running the wizard, you'll also need to run `claude` interactively once to log in to Claude Code (the wizard reminds you if you haven't).
+For Telegram, you'll need **two BotFather tokens** total: one for the Orchestrator (asked here), one for the Analyst (asked later by the Orchestrator during `/onboarding`). Create both ahead of time from `@BotFather` on Telegram if you want a smooth flow.
+
+For Slack, create a Slack app with Socket Mode enabled before running the wizard. You need:
+
+- Bot token: `xoxb-...`
+- App-level token: `xapp-...` with `connections:write`
+- Channel ID for the dedicated control channel, e.g. `C123...`
+- Bot scopes: `app_mentions:read`, `channels:history`, `chat:write`, `files:read`, `im:history`, `im:read`
+- Bot events: `app_mention`, `message.channels`, `message.im`
+
+After changing scopes or events in Slack, click **Reinstall to Workspace**. Without reinstalling, Slack will not deliver the new event types. The bridge listens to normal messages only in `SLACK_LISTEN_CHANNELS`; elsewhere, mention the app explicitly.
+
+For Codex/OpenAI, run `codex` interactively once to sign in with ChatGPT/OpenAI, or set `OPENAI_API_KEY` for the user running the agents. The wizard reminds you if this is missing.
+
+For Claude Code, run `claude` interactively once to log in to Claude Code. The wizard reminds you if this is missing.
 
 ### 2. Send a message
 
-Open Telegram → find the bot you connected → say `hello`. Then send:
+Open your chosen channel:
+
+- Telegram: find the bot you connected and say `hello`.
+- Slack: invite the app to the dedicated control channel and write normally, or DM the app.
+
+Then send:
 
 ```
 /onboarding
@@ -82,8 +111,11 @@ cd $env:USERPROFILE\cortextos; cortextos start boss
 |------|---------|
 | `nova-prereq.sh` | Mac/Linux prereq checker — auto-installs Homebrew (Mac), jq, Node 20+, Claude Code, cortextOS, PM2. Idempotent. |
 | `nova-prereq.ps1` | Windows-native equivalent (PowerShell 5.1+). Installs Node via `winget`, Claude Code + cortextOS + PM2 via npm. Idempotent. |
-| `nova-init.sh` | Mac/Linux student wizard. Picks workspace name + Telegram token, then provisions the Orchestrator. |
-| `nova-init.ps1` | Windows-native wizard (PowerShell). Same 3-step flow as the bash version. |
+| `nova-init.sh` | Mac/Linux student wizard. Picks runtime + workspace name + Telegram or Slack, then provisions the Orchestrator. |
+| `templates/nova-cortex-orchestrator-codex/` | Codex/OpenAI Orchestrator template (`runtime: codex-app-server`, `model: gpt-5-codex`). |
+| `templates/nova-cortex-analyst-codex/` | Codex/OpenAI Analyst template (`runtime: codex-app-server`, `model: gpt-5-codex`). |
+| `slack-bridge/` | Optional Slack Socket Mode bridge. Forwards Slack messages into the cortextOS bus and posts agent replies back to Slack. |
+| `nova-init.ps1` | Windows-native wizard (PowerShell). Original Telegram setup flow. |
 | `templates/nova-cortex-orchestrator/` | Branded Orchestrator template — installed into `$HOME/cortextos/templates/` by either init script. |
 | `templates/nova-cortex-analyst/` | Branded Analyst template — installed alongside, spawned by the Orchestrator during `/onboarding`. |
 | `LICENSE` | MIT, with cortextOS attribution. |
@@ -104,7 +136,7 @@ Want to fork this for your own brand?
 
 ## Engine & attribution
 
-Nova Cortex is a **branding + curated-templates layer** on top of [cortextOS](https://github.com/grandamenium/cortextos). The actual multi-agent runtime, daemon, bus, knowledge base, and Telegram integration all come from cortextOS — an open-source framework by Cortext LLC (MIT licensed).
+Nova Cortex is a **branding + curated-templates layer** on top of [cortextOS](https://github.com/grandamenium/cortextos). The actual multi-agent runtime, daemon, bus, knowledge base, and Telegram integration all come from cortextOS — an open-source framework by Cortext LLC (MIT licensed). Nova's Slack option is implemented as a lightweight bridge on top of the cortextOS bus, so it can stay compatible with upstream cortextOS.
 
 We don't fork cortextOS. We pin to its releases and ship our templates on top. That means cortextOS updates flow downstream automatically.
 

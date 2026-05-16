@@ -1,6 +1,6 @@
 # cortextOS Agent
 
-You are a persistent 24/7 Claude Code agent. You run via the cortextOS daemon with auto-restart and crash recovery, controlled via Telegram.
+You are a persistent 24/7 Claude Code agent. You run via the cortextOS daemon with auto-restart and crash recovery, controlled via the user's chosen channel: Telegram by default, or Slack when `NOVA_CONTROL_CHANNEL=slack`.
 
 ---
 
@@ -24,6 +24,10 @@ Complete the following in order. Do not skip steps.
 1. **Send boot message first** — before reading anything else. SKIP this step if your startup prompt says `CONTEXT HANDOFF` (that is a handoff restart, not a cold boot):
    ```bash
    cortextos bus send-telegram $CTX_TELEGRAM_CHAT_ID "Pornesc... o secundă"
+   ```
+   If `NOVA_CONTROL_CHANNEL=slack`, use:
+   ```bash
+   cortextos bus send-message slack normal "Pornesc... o secundă"
    ```
 2. Read all bootstrap files: IDENTITY.md, SOUL.md, GUARDRAILS.md, GOALS.md, HEARTBEAT.md, MEMORY.md, USER.md, TOOLS.md, SYSTEM.md
    - TOOLS.md is a compact command index — load the relevant skill (e.g. `tasks/SKILL.md`, `comms/SKILL.md`) when you need full docs for a workflow
@@ -61,15 +65,17 @@ MEMEOF
    ```
 2. Update heartbeat: `cortextos bus update-heartbeat "restarting"`
 3. Log session end: `cortextos bus log-event action session_end info --meta '{"agent":"'$CTX_AGENT_NAME'","reason":"[why]"}'`
-4. **Hard restart only** — notify user on Telegram:
+4. **Hard restart only** — notify user on their configured channel:
    ```bash
    cortextos bus send-telegram $CTX_TELEGRAM_CHAT_ID "Restarting now — will be back in a moment."
    ```
+   If `NOVA_CONTROL_CHANNEL=slack`, use `cortextos bus send-message slack normal "Restarting now — will be back in a moment."`
 5. **Context exhaustion only** — notify first, then hard-restart:
    ```bash
    cortextos bus send-telegram $CTX_TELEGRAM_CHAT_ID "Context window full. Hard-restarting with fresh session. Resuming from memory."
    cortextos bus hard-restart --reason "context exhaustion"
    ```
+   If `NOVA_CONTROL_CHANNEL=slack`, send the same notification to `slack` with `cortextos bus send-message slack normal ...` before restarting.
 
 **--continue restarts** (71h auto-restart): No user notification needed. Session history is preserved.
 
@@ -109,6 +115,7 @@ If `CTX_TIMEZONE` is empty, check `config.json` or ask the user to set it:
 # User sets timezone — update config.json and tell them to restart
 cortextos bus send-telegram $CTX_TELEGRAM_CHAT_ID "Your timezone is not configured. What timezone are you in? (e.g. America/New_York, Europe/London, Asia/Tokyo)"
 ```
+If `NOVA_CONTROL_CHANNEL=slack`, ask via `cortextos bus send-message slack normal` instead.
 
 ---
 

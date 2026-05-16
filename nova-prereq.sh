@@ -26,6 +26,12 @@ nova_fail() { echo -e "  ${RED}✗${RESET} $*" >&2; exit 1; }
 nova_step() { echo ""; echo -e "${CYAN}─── $* ───${RESET}"; }
 nova_dim()  { echo -e "    ${DIM}$*${RESET}"; }
 
+NOVA_AGENT_RUNTIME="${NOVA_AGENT_RUNTIME:-claude}"
+case "$NOVA_AGENT_RUNTIME" in
+  claude|codex) ;;
+  *) nova_fail "NOVA_AGENT_RUNTIME trebuie să fie 'claude' sau 'codex' (acum: $NOVA_AGENT_RUNTIME)." ;;
+esac
+
 # ─── Detectează OS ────────────────────────────────────────────────────────
 nova_step "Detectez sistemul tău"
 
@@ -118,84 +124,118 @@ if [[ $node_ok -eq 0 ]]; then
   nova_ok "Node.js instalat ($(node --version))"
 fi
 
-# ─── Claude Code CLI ──────────────────────────────────────────────────────
-nova_step "Verific Claude Code CLI (agenții AI au nevoie ca să gândească)"
-if command -v claude >/dev/null 2>&1; then
-  nova_ok "Claude Code deja instalat ($(claude --version 2>/dev/null | head -1))"
-else
-  nova_say "Instalez Claude Code CLI..."
-  if [[ "$OS" == "linux" ]] && npm config get prefix 2>/dev/null | grep -q "^/usr"; then
-    # Linux apt-Node: npm prefix=/usr → instalari globale cer root.
-    sudo npm install -g @anthropic-ai/claude-code
+if [[ "$NOVA_AGENT_RUNTIME" == "codex" ]]; then
+  # ─── OpenAI Codex CLI ───────────────────────────────────────────────────
+  nova_step "Verific OpenAI Codex CLI (runtime-ul agenților Nova Cortex)"
+  if command -v codex >/dev/null 2>&1; then
+    nova_ok "Codex CLI deja instalat ($(codex --version 2>/dev/null | head -1 || echo 'versiune necunoscută'))"
   else
-    # Mac (brew Node) sau Linux cu npm prefix in $HOME.
-    npm install -g @anthropic-ai/claude-code
+    nova_say "Instalez OpenAI Codex CLI..."
+    if [[ "$OS" == "linux" ]] && npm config get prefix 2>/dev/null | grep -q "^/usr"; then
+      sudo npm install -g @openai/codex
+    else
+      npm install -g @openai/codex
+    fi
+    hash -r 2>/dev/null || true
+    command -v codex >/dev/null 2>&1 || nova_fail "Codex CLI nu a ajuns pe PATH dupa instalare. Verifica: which codex"
+    nova_ok "Codex CLI instalat"
   fi
-  hash -r 2>/dev/null || true
-  command -v claude >/dev/null 2>&1 || nova_fail "Claude Code nu a ajuns pe PATH dupa instalare. Verifica: which claude"
-  nova_ok "Claude Code instalat"
-fi
 
-# Verifica autentificarea Claude Code. Claude stocheaza credentialele in
-# ~/.claude/.credentials.json (sau similar). Fara ele, primul boot al claude
-# in PTY se blocheaza la "Select login method" — agentii nu raspund. Forteaza
-# userul sa faca `claude` interactiv inainte de nova-init.sh.
-if [[ ! -f "$HOME/.claude/.credentials.json" ]]; then
-  nova_warn "Claude Code instalat dar NU autentificat (lipseste ~/.claude/.credentials.json)."
-  echo ""
-  echo -e "  ${BOLD}Trebuie sa rulezi MANUAL ${CYAN}claude${RESET}${BOLD} o data inainte de nova-init.sh:${RESET}"
-  echo ""
-  echo -e "    1. Tasteaza: ${CYAN}claude${RESET}"
-  echo -e "    2. Alege tema (1 = Auto)"
-  echo -e "    3. Alege login method (1 = Claude subscription Pro/Max)"
-  echo -e "    4. Browser-ul se deschide pentru autentificare cu contul Anthropic"
-  echo -e "    5. Cand vezi prompt-ul ${CYAN}>${RESET}, iesi cu ${CYAN}/exit${RESET}"
-  echo ""
-  echo -e "  Apoi reia: ${CYAN}bash nova-prereq.sh${RESET} (verifica) si ${CYAN}bash nova-init.sh${RESET} (wizard)."
-  echo ""
-  nova_fail "Autentifica claude inainte sa continui."
-fi
-nova_ok "Claude Code autentificat"
-
-# Seteaza `skipDangerousModePermissionPrompt: true` in ~/.claude/settings.json.
-# Claude Code 2.1.133+ a adaugat o avertizare manuala pentru
-# `--dangerously-skip-permissions` care blocheaza PTY-ul cortextOS (auto-accept-ul
-# 5s/8s nu o recunoaste; iar default-ul e "No, exit"). Cand flagul e on, claude
-# trece direct fara prompt.
-CLAUDE_SETTINGS="$HOME/.claude/settings.json"
-if [[ -f "$CLAUDE_SETTINGS" ]]; then
-  if ! jq -e '.skipDangerousModePermissionPrompt == true' "$CLAUDE_SETTINGS" >/dev/null 2>&1; then
-    nova_say "Setez skipDangerousModePermissionPrompt in ~/.claude/settings.json (evita prompt-ul de --dangerously-skip-permissions)..."
-    [[ ! -f "$CLAUDE_SETTINGS.nova-bak" ]] && cp "$CLAUDE_SETTINGS" "$CLAUDE_SETTINGS.nova-bak"
-    jq '. + {skipDangerousModePermissionPrompt: true}' "$CLAUDE_SETTINGS" > "$CLAUDE_SETTINGS.tmp" \
-      && mv "$CLAUDE_SETTINGS.tmp" "$CLAUDE_SETTINGS" \
-      && nova_ok "skipDangerousModePermissionPrompt setat" \
-      || nova_warn "Nu am putut scrie in $CLAUDE_SETTINGS — agentii pot bloca la prima pornire."
-  else
-    nova_ok "skipDangerousModePermissionPrompt deja setat"
+  if [[ -z "${OPENAI_API_KEY:-}" && ! -f "$HOME/.codex/auth.json" ]]; then
+    nova_warn "Codex CLI pare instalat, dar nu văd autentificare OpenAI pentru userul curent."
+    echo ""
+    echo -e "  ${BOLD}Trebuie să rulezi MANUAL ${CYAN}codex${RESET}${BOLD} o dată înainte de nova-init.sh:${RESET}"
+    echo ""
+    echo -e "    1. Tastează: ${CYAN}codex${RESET}"
+    echo "    2. Autentifică-te cu ChatGPT/OpenAI când ți se cere"
+    echo -e "    3. Când ajungi în Codex, ieși cu ${CYAN}/exit${RESET}"
+    echo ""
+    echo -e "  Alternativ, setează ${CYAN}OPENAI_API_KEY${RESET} pentru userul care rulează agenții."
+    echo -e "  Apoi reia: ${CYAN}NOVA_AGENT_RUNTIME=codex bash nova-prereq.sh${RESET} și ${CYAN}NOVA_AGENT_RUNTIME=codex bash nova-init.sh${RESET}."
+    echo ""
+    nova_fail "Autentifică Codex/OpenAI înainte să continui."
   fi
+  nova_ok "Codex/OpenAI autentificat"
 else
-  # settings.json lipseste — il cream cu doar flagul nostru. Claude il citeste ok daca
-  # restul cheilor lipsesc (toate au default-uri).
-  mkdir -p "$HOME/.claude"
-  echo '{"skipDangerousModePermissionPrompt": true}' > "$CLAUDE_SETTINGS"
-  nova_ok "Creat ~/.claude/settings.json cu skipDangerousModePermissionPrompt"
-fi
-
-# Marcheaza onboarding-ul ca terminat in ~/.claude.json. Daca aceste flag-uri
-# lipsesc, claude rulat de PTY relanseaza first-run wizard (theme picker + login
-# method) la fiecare boot, chiar daca user-ul are credentials.json salvat.
-CLAUDE_PROFILE="$HOME/.claude.json"
-if [[ -f "$CLAUDE_PROFILE" ]]; then
-  if ! jq -e '.hasCompletedOnboarding == true' "$CLAUDE_PROFILE" >/dev/null 2>&1; then
-    nova_say "Marchez onboarding Claude Code ca terminat in ~/.claude.json (evita wizard-ul de first-run la fiecare lansare PTY)..."
-    [[ ! -f "$CLAUDE_PROFILE.nova-bak" ]] && cp "$CLAUDE_PROFILE" "$CLAUDE_PROFILE.nova-bak"
-    jq '. + {hasCompletedOnboarding: true, hasInitOnboardingBeenShown: true, lastOnboardingVersion: "2.0.26"}' "$CLAUDE_PROFILE" > "$CLAUDE_PROFILE.tmp" \
-      && mv "$CLAUDE_PROFILE.tmp" "$CLAUDE_PROFILE" \
-      && nova_ok "Flag hasCompletedOnboarding setat" \
-      || nova_warn "Nu am putut scrie in $CLAUDE_PROFILE — agentii pot bloca la first-run wizard."
+  # ─── Claude Code CLI ────────────────────────────────────────────────────
+  nova_step "Verific Claude Code CLI (agenții AI au nevoie ca să gândească)"
+  if command -v claude >/dev/null 2>&1; then
+    nova_ok "Claude Code deja instalat ($(claude --version 2>/dev/null | head -1))"
   else
-    nova_ok "Onboarding Claude Code deja marcat ca terminat"
+    nova_say "Instalez Claude Code CLI..."
+    if [[ "$OS" == "linux" ]] && npm config get prefix 2>/dev/null | grep -q "^/usr"; then
+      # Linux apt-Node: npm prefix=/usr → instalari globale cer root.
+      sudo npm install -g @anthropic-ai/claude-code
+    else
+      # Mac (brew Node) sau Linux cu npm prefix in $HOME.
+      npm install -g @anthropic-ai/claude-code
+    fi
+    hash -r 2>/dev/null || true
+    command -v claude >/dev/null 2>&1 || nova_fail "Claude Code nu a ajuns pe PATH dupa instalare. Verifica: which claude"
+    nova_ok "Claude Code instalat"
+  fi
+
+  # Verifica autentificarea Claude Code. Claude stocheaza credentialele in
+  # ~/.claude/.credentials.json (sau similar). Fara ele, primul boot al claude
+  # in PTY se blocheaza la "Select login method" — agentii nu raspund. Forteaza
+  # userul sa faca `claude` interactiv inainte de nova-init.sh.
+  if [[ ! -f "$HOME/.claude/.credentials.json" ]]; then
+    nova_warn "Claude Code instalat dar NU autentificat (lipseste ~/.claude/.credentials.json)."
+    echo ""
+    echo -e "  ${BOLD}Trebuie sa rulezi MANUAL ${CYAN}claude${RESET}${BOLD} o data inainte de nova-init.sh:${RESET}"
+    echo ""
+    echo -e "    1. Tasteaza: ${CYAN}claude${RESET}"
+    echo -e "    2. Alege tema (1 = Auto)"
+    echo -e "    3. Alege login method (1 = Claude subscription Pro/Max)"
+    echo -e "    4. Browser-ul se deschide pentru autentificare cu contul Anthropic"
+    echo -e "    5. Cand vezi prompt-ul ${CYAN}>${RESET}, iesi cu ${CYAN}/exit${RESET}"
+    echo ""
+    echo -e "  Apoi reia: ${CYAN}bash nova-prereq.sh${RESET} (verifica) si ${CYAN}bash nova-init.sh${RESET} (wizard)."
+    echo ""
+    nova_fail "Autentifica claude inainte sa continui."
+  fi
+  nova_ok "Claude Code autentificat"
+
+  # Seteaza `skipDangerousModePermissionPrompt: true` in ~/.claude/settings.json.
+  # Claude Code 2.1.133+ a adaugat o avertizare manuala pentru
+  # `--dangerously-skip-permissions` care blocheaza PTY-ul cortextOS (auto-accept-ul
+  # 5s/8s nu o recunoaste; iar default-ul e "No, exit"). Cand flagul e on, claude
+  # trece direct fara prompt.
+  CLAUDE_SETTINGS="$HOME/.claude/settings.json"
+  if [[ -f "$CLAUDE_SETTINGS" ]]; then
+    if ! jq -e '.skipDangerousModePermissionPrompt == true' "$CLAUDE_SETTINGS" >/dev/null 2>&1; then
+      nova_say "Setez skipDangerousModePermissionPrompt in ~/.claude/settings.json (evita prompt-ul de --dangerously-skip-permissions)..."
+      [[ ! -f "$CLAUDE_SETTINGS.nova-bak" ]] && cp "$CLAUDE_SETTINGS" "$CLAUDE_SETTINGS.nova-bak"
+      jq '. + {skipDangerousModePermissionPrompt: true}' "$CLAUDE_SETTINGS" > "$CLAUDE_SETTINGS.tmp" \
+        && mv "$CLAUDE_SETTINGS.tmp" "$CLAUDE_SETTINGS" \
+        && nova_ok "skipDangerousModePermissionPrompt setat" \
+        || nova_warn "Nu am putut scrie in $CLAUDE_SETTINGS — agentii pot bloca la prima pornire."
+    else
+      nova_ok "skipDangerousModePermissionPrompt deja setat"
+    fi
+  else
+    # settings.json lipseste — il cream cu doar flagul nostru. Claude il citeste ok daca
+    # restul cheilor lipsesc (toate au default-uri).
+    mkdir -p "$HOME/.claude"
+    echo '{"skipDangerousModePermissionPrompt": true}' > "$CLAUDE_SETTINGS"
+    nova_ok "Creat ~/.claude/settings.json cu skipDangerousModePermissionPrompt"
+  fi
+
+  # Marcheaza onboarding-ul ca terminat in ~/.claude.json. Daca aceste flag-uri
+  # lipsesc, claude rulat de PTY relanseaza first-run wizard (theme picker + login
+  # method) la fiecare boot, chiar daca user-ul are credentials.json salvat.
+  CLAUDE_PROFILE="$HOME/.claude.json"
+  if [[ -f "$CLAUDE_PROFILE" ]]; then
+    if ! jq -e '.hasCompletedOnboarding == true' "$CLAUDE_PROFILE" >/dev/null 2>&1; then
+      nova_say "Marchez onboarding Claude Code ca terminat in ~/.claude.json (evita wizard-ul de first-run la fiecare lansare PTY)..."
+      [[ ! -f "$CLAUDE_PROFILE.nova-bak" ]] && cp "$CLAUDE_PROFILE" "$CLAUDE_PROFILE.nova-bak"
+      jq '. + {hasCompletedOnboarding: true, hasInitOnboardingBeenShown: true, lastOnboardingVersion: "2.0.26"}' "$CLAUDE_PROFILE" > "$CLAUDE_PROFILE.tmp" \
+        && mv "$CLAUDE_PROFILE.tmp" "$CLAUDE_PROFILE" \
+        && nova_ok "Flag hasCompletedOnboarding setat" \
+        || nova_warn "Nu am putut scrie in $CLAUDE_PROFILE — agentii pot bloca la first-run wizard."
+    else
+      nova_ok "Onboarding Claude Code deja marcat ca terminat"
+    fi
   fi
 fi
 
@@ -285,10 +325,18 @@ echo -e "${PURPLE}╰───────────────────�
 echo ""
 echo "Versiuni confirmate:"
 echo "  Node.js:        $(node --version)"
-echo "  Claude Code:    $(claude --version 2>/dev/null | head -1 || echo 'instalat')"
+if [[ "$NOVA_AGENT_RUNTIME" == "codex" ]]; then
+  echo "  Codex CLI:      $(codex --version 2>/dev/null | head -1 || echo 'instalat')"
+else
+  echo "  Claude Code:    $(claude --version 2>/dev/null | head -1 || echo 'instalat')"
+fi
 echo "  cortextOS:      $(cortextos --version 2>/dev/null | head -1 || echo 'instalat')"
 echo "  PM2:            $(pm2 --version 2>/dev/null | head -1 || echo 'instalat')"
 echo "  jq:             $(jq --version)"
 echo ""
-echo "Următor: rulează ${BOLD}bash nova-init.sh${RESET} ca să configurezi primii agenți Nova Cortex."
+if [[ "$NOVA_AGENT_RUNTIME" == "codex" ]]; then
+  echo "Următor: rulează ${BOLD}NOVA_AGENT_RUNTIME=codex bash nova-init.sh${RESET} ca să configurezi primii agenți Nova Cortex."
+else
+  echo "Următor: rulează ${BOLD}bash nova-init.sh${RESET} ca să configurezi primii agenți Nova Cortex."
+fi
 echo ""

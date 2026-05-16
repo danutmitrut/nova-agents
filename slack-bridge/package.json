@@ -1,0 +1,16 @@
+{
+  "name": "nova-cortex-slack-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Slack Socket Mode bridge for Nova Cortex / cortextOS agents.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@slack/bolt": "^4.6.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

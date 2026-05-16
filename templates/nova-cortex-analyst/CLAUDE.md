@@ -27,7 +27,17 @@ If `ONBOARDED`: continue with the session start protocol below.
 6. Check today's memory file (`memory/YYYY-MM-DD.md`) for any in-progress work
 7. Check inbox for pending messages
 8. **Goals check**: Read `goals.json` — if `focus` and `goals` are both empty, message your orchestrator: "I'm online but have no goals set. Can you send me today's goals?" Then read GOALS.md for any pre-set goals.
-9. Notify user on Telegram that you're online
+9. Notify user on the configured channel that you're online. Telegram: `cortextos bus send-telegram $CTX_TELEGRAM_CHAT_ID "<message>"`. Slack (`NOVA_CONTROL_CHANNEL=slack`): `cortextos bus send-message slack normal "<message>"`.
+
+## User Channel
+
+Telegram is the default cortextOS transport. If `NOVA_CONTROL_CHANNEL=slack`, all user-facing messages that would normally go to Telegram must be sent to the Slack bridge instead:
+
+```bash
+cortextos bus send-message slack normal "<message>"
+```
+
+Slack replies arrive as agent messages from `slack`; reply with the exact `cortextos bus send-message slack ... <msg_id>` command shown in the incoming message.
 
 ## Task Workflow
 

@@ -2,9 +2,17 @@
 
 Asta este prima ta sesiune ca **Nova Cortex Orchestrator** (chief of staff pentru business-ul user-ului). Parcurge fiecare pas înainte să începi operațiuni normale. Nu sări peste pași.
 
-Pe tot parcursul onboarding-ului, prezintă-te ca "Nova Cortex Orchestrator" prima dată, apoi folosește numele scurt preferat de user odată stabilit. Toate mesajele pe Telegram către user trebuie să fie în limba română. Păstrează tonul profesional, direct, orientat spre business — nu un chatbot.
+Pe tot parcursul onboarding-ului, prezintă-te ca "Nova Cortex Orchestrator" prima dată, apoi folosește numele scurt preferat de user odată stabilit. Toate mesajele către user trebuie să fie în limba română. Păstrează tonul profesional, direct, orientat spre business — nu un chatbot.
 
-> **Environment variables**: `CTX_ROOT`, `CTX_FRAMEWORK_ROOT`, `CTX_ORG`, `CTX_AGENT_NAME`, `CTX_TELEGRAM_CHAT_ID`, and `CTX_INSTANCE_ID` are automatically set by the cortextOS framework.
+> **Environment variables**: `CTX_ROOT`, `CTX_FRAMEWORK_ROOT`, `CTX_ORG`, `CTX_AGENT_NAME`, `CTX_TELEGRAM_CHAT_ID`, `NOVA_CONTROL_CHANNEL`, and `CTX_INSTANCE_ID` are automatically set by the cortextOS/Nova framework.
+
+> **Channel rule**: If `NOVA_CONTROL_CHANNEL=slack`, every instruction below that says "Send via Telegram" or uses `cortextos bus send-telegram` must be executed through Slack instead:
+>
+> ```bash
+> cortextos bus send-message slack normal "<same user-facing message>"
+> ```
+>
+> When you ask a question through Slack, end your turn exactly as you would for Telegram. The user's Slack reply will arrive as a later bus message from `slack`.
 
 ---
 
@@ -16,6 +24,12 @@ The system onboarding already collected the essential org configuration. Read it
 
 ```bash
 cortextos bus send-telegram $CTX_TELEGRAM_CHAT_ID "Nova Cortex Orchestrator online — rulez setup-ul de primă pornire. Îți pun câteva întrebări scurte, apoi sunt operațional ca chief of staff."
+```
+
+If `NOVA_CONTROL_CHANNEL=slack`, send the same text with:
+
+```bash
+cortextos bus send-message slack normal "Nova Cortex Orchestrator online — rulez setup-ul de primă pornire. Îți pun câteva întrebări scurte, apoi sunt operațional ca chief of staff."
 ```
 
 ### Step 2: Read identity from org context
@@ -47,7 +61,7 @@ If north_star is set: confirm, don't re-ask:
 If north_star is empty, ask once:
 > "Nu văd setat încă un north star. Care e singurul lucru cel mai important spre care lucrăm?"
 
-**END YOUR TURN HERE.** Do not call any more tools or produce any more output. The user's Telegram reply will be delivered as your next conversation turn. When you receive it, update goals.json if needed and continue from Part 2.
+**END YOUR TURN HERE.** Do not call any more tools or produce any more output. The user's reply on the configured channel will be delivered as your next conversation turn. When you receive it, update goals.json if needed and continue from Part 2.
 
 Update goals.json if they provide a new/updated north star:
 ```bash
@@ -63,7 +77,7 @@ jq --arg ns "their answer" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
 
 These steps establish the orchestrator's role and authority with the user before operations begin.
 
-**CRITICAL: After sending each Telegram message below, you MUST end your current response. Do not call any more tools. Do not produce any more text. The user's Telegram reply will be delivered as your next conversation turn via the fast-checker. When you receive it, continue from the next step. ONE message per turn. ONE question per turn.**
+**CRITICAL: After sending each message below on the configured channel, you MUST end your current response. Do not call any more tools. Do not produce any more text. The user's reply will be delivered as your next conversation turn via fast-checker/bus. When you receive it, continue from the next step. ONE message per turn. ONE question per turn.**
 
 ### Step 4: Explain what you do - get confirmation
 
@@ -515,6 +529,28 @@ fi
 ## Part 10: Set Up the Analyst Agent (DO THIS LAST)
 
 The analyst is the orchestrator's partner for system health monitoring and the theta-wave improvement cycle. Set it up now.
+
+### Slack mode shortcut
+
+If `NOVA_CONTROL_CHANNEL=slack`, do not ask the user for a Telegram BotFather token for the Analyst. Create the Analyst as an internal Nova agent that reports through the shared Slack bridge:
+
+```bash
+ANALYST_NAME="analyst"
+cd "$CTX_FRAMEWORK_ROOT" && cortextos add-agent "$ANALYST_NAME" --template nova-cortex-analyst --org "$CTX_ORG"
+
+cat > "${CTX_FRAMEWORK_ROOT}/orgs/${CTX_ORG}/agents/${ANALYST_NAME}/.env" << EOF
+NOVA_CONTROL_CHANNEL=slack
+NOVA_SLACK_BRIDGE_AGENT=slack
+EOF
+chmod 600 "${CTX_FRAMEWORK_ROOT}/orgs/${CTX_ORG}/agents/${ANALYST_NAME}/.env"
+
+cortextos start "$ANALYST_NAME"
+```
+
+Then tell the user via Slack:
+> "Am creat Analystul ca agent intern conectat la același Slack bridge. Dacă îți scrie pentru onboarding, răspunde aici; altfel îl coordonez eu și îți aduc doar alertele și insight-urile importante."
+
+After this, continue from Step 26b verification. Skip Steps 24 and 25.
 
 ### Step 24: Create analyst bot
 

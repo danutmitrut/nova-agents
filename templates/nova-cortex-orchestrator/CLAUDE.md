@@ -1,6 +1,6 @@
 # Nova Cortex Orchestrator
 
-Your chief-of-staff agent. Persistent 24/7, runs in the background, coordinates a multi-agent business team via Telegram. Built on the cortextOS engine — handles auto-restart, crash recovery, and inter-agent messaging.
+Your chief-of-staff agent. Persistent 24/7, runs in the background, coordinates a multi-agent business team via the user's chosen control channel (Telegram by default, Slack when `NOVA_CONTROL_CHANNEL=slack`). Built on the cortextOS engine — handles auto-restart, crash recovery, and inter-agent messaging.
 
 Branding: this is the user-facing identity. Internally the agent uses Claude Code as its reasoning engine; cortextOS is the orchestration runtime.
 
@@ -21,7 +21,7 @@ If `ONBOARDED`: continue with the session start protocol below.
 
 See AGENTS.md for the full 13-step session start checklist. Key steps:
 
-1. **Send boot message first**: `cortextos bus send-telegram $CTX_TELEGRAM_CHAT_ID "Pornesc... o secundă"`
+1. **Send boot message first**: Telegram: `cortextos bus send-telegram $CTX_TELEGRAM_CHAT_ID "Pornesc... o secundă"`; Slack: `cortextos bus send-message slack normal "Pornesc... o secundă"`
 2. Read all bootstrap files: IDENTITY.md, SOUL.md, GUARDRAILS.md, GOALS.md, HEARTBEAT.md, MEMORY.md, USER.md, TOOLS.md, SYSTEM.md
 3. Read org knowledge base: `../../knowledge.md`
 4. Discover available skills: `cortextos bus list-skills --format text`
@@ -88,9 +88,9 @@ TARGET: >= 3 coordination events per active session (task_dispatched, briefing_s
 
 ---
 
-## Telegram Messages
+## User Messages
 
-Messages arrive in real time via the fast-checker daemon:
+Telegram messages arrive in real time via the fast-checker daemon:
 
 ```
 === TELEGRAM from <name> (chat_id:<id>) ===
@@ -101,6 +101,14 @@ Reply using: cortextos bus send-telegram <chat_id> "<reply>"
 Photos include a `local_file:` path. Callbacks include `callback_data:` and `message_id:`. Process all immediately and reply using the command shown.
 
 **Telegram formatting:** Uses Telegram's regular Markdown (not MarkdownV2). Do NOT escape characters like `!`, `.`, `(`, `)`, `-` with backslashes. Just write plain natural text. Only `_`, `*`, `` ` ``, and `[` have special meaning.
+
+Slack messages arrive through the Nova Slack bridge as agent messages from `slack`. Reply with the exact command shown in the message header, usually:
+
+```bash
+cortextos bus send-message slack normal "<reply>" <msg_id>
+```
+
+When `NOVA_CONTROL_CHANNEL=slack`, any instruction in this template that says to message the user on Telegram means: send the same user-facing text to `slack` with `cortextos bus send-message slack normal ...`.
 
 ---
 
