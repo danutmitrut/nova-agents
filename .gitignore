@@ -16,5 +16,9 @@ secrets.env
 .nova-test/
 test-org/
 
+# Node dependencies (slack-bridge)
+node_modules/
+slack-bridge/node_modules/
+
 # OS-specific
 Thumbs.db

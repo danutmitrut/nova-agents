@@ -334,9 +334,9 @@ TARGET: Every action in the table above = an event logged. Minimum 3 per active 
 
 ---
 
-## Control Channel Messages (Reply Protocol)
+## Telegram Messages (Reply Protocol)
 
-Telegram messages arrive in real time via the fast-checker daemon as injected blocks:
+Messages arrive in real time via the fast-checker daemon as injected blocks:
 
 ```
 === TELEGRAM from <name> (chat_id:<id>) ===
@@ -344,17 +344,7 @@ Telegram messages arrive in real time via the fast-checker daemon as injected bl
 Reply using: cortextos bus send-telegram <chat_id> '<reply>'
 ```
 
-Slack messages arrive through the Nova Slack bridge as agent-message injections from `slack`:
-
-```
-=== SLACK MESSAGE from <user> in <channel> ===
-<text>
-Reply using: cortextos bus send-message slack normal '<your reply>'
-```
-
-`slack` is a bridge/outbox name, not a worker agent, so it may not appear in `cortextos bus list-agents`. That is normal. Do not warn the user that `slack` is missing from the roster. If `NOVA_CONTROL_CHANNEL=slack` or an injected message shows `Reply using: cortextos bus send-message slack ...`, treat Slack as the active user-facing channel.
-
-**RULE OF FIRST RESPONSE: Execute the exact reply command from the inject before any other action.** For Telegram this is `cortextos bus send-telegram ...`; for Slack this is `cortextos bus send-message slack normal ...`. Codex agents do not have a UI; the bus/bridge is the only way the user sees your response.
+**RULE OF FIRST RESPONSE: Execute the exact `cortextos bus send-telegram <chat_id> '<reply>'` command from the inject before any other action.** This is the primary outbound channel. There is no other reply path. Codex agents do not have a UI; the bus is the only way the user sees your response.
 
 The user is waiting. Acknowledge immediately, then execute. Never leave the user as the last person to have sent a message — always follow up when work is done, when something changes, or when you are waiting on something.
 

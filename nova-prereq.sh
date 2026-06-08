@@ -5,7 +5,9 @@
 # Idempotent: safe de rerulat; dependențele deja instalate sunt sărite.
 #
 # Suportat: macOS, Linux (Debian/Ubuntu via apt). Userii Windows trebuie să
-# instaleze WSL2 întâi și să ruleze acest script în shell-ul Linux.
+# folosească nova-init.ps1 în PowerShell nativ.
+#
+# Acceptă variabila de mediu NOVA_AGENT_RUNTIME (codex|claude). Implicit claude.
 
 set -e
 
@@ -124,8 +126,9 @@ if [[ $node_ok -eq 0 ]]; then
   nova_ok "Node.js instalat ($(node --version))"
 fi
 
+# ─── Runtime AI: Claude Code sau OpenAI Codex ─────────────────────────────
 if [[ "$NOVA_AGENT_RUNTIME" == "codex" ]]; then
-  # ─── OpenAI Codex CLI ───────────────────────────────────────────────────
+
   nova_step "Verific OpenAI Codex CLI (runtime-ul agenților Nova Cortex)"
   if command -v codex >/dev/null 2>&1; then
     nova_ok "Codex CLI deja instalat ($(codex --version 2>/dev/null | head -1 || echo 'versiune necunoscută'))"
@@ -156,8 +159,9 @@ if [[ "$NOVA_AGENT_RUNTIME" == "codex" ]]; then
     nova_fail "Autentifică Codex/OpenAI înainte să continui."
   fi
   nova_ok "Codex/OpenAI autentificat"
+
 else
-  # ─── Claude Code CLI ────────────────────────────────────────────────────
+
   nova_step "Verific Claude Code CLI (agenții AI au nevoie ca să gândească)"
   if command -v claude >/dev/null 2>&1; then
     nova_ok "Claude Code deja instalat ($(claude --version 2>/dev/null | head -1))"
@@ -237,6 +241,7 @@ else
       nova_ok "Onboarding Claude Code deja marcat ca terminat"
     fi
   fi
+
 fi
 
 # ─── cortextOS engine ─────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 {
-  "name": "nova-cortex-slack-bridge",
+  "name": "nova-slack-bridge",
   "version": "0.1.0",
   "private": true,
   "description": "Slack Socket Mode bridge for Nova Cortex / cortextOS agents.",
