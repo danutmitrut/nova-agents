@@ -9,6 +9,8 @@
 #
 # Suportă: Windows 10/11 nativ cu PowerShell 5.1+ sau 7+. NU rulează în WSL2 —
 # pentru WSL2/Linux foloseste nova-prereq.sh.
+#
+# Acceptă variabila de mediu $env:NOVA_AGENT_RUNTIME (codex|claude). Implicit claude.
 
 $ErrorActionPreference = 'Stop'
 
@@ -19,6 +21,11 @@ function Nova-Warn($msg) { Write-Host "  ! $msg" -ForegroundColor Yellow }
 function Nova-Fail($msg) { Write-Host "  ✗ $msg" -ForegroundColor Red; exit 1 }
 function Nova-Step($msg) { Write-Host ""; Write-Host "─── $msg ───" -ForegroundColor Cyan }
 function Nova-Dim($msg)  { Write-Host "    $msg" -ForegroundColor DarkGray }
+
+$NOVA_AGENT_RUNTIME = if ($env:NOVA_AGENT_RUNTIME) { $env:NOVA_AGENT_RUNTIME } else { 'claude' }
+if ($NOVA_AGENT_RUNTIME -notin @('claude', 'codex')) {
+  Nova-Fail "NOVA_AGENT_RUNTIME trebuie să fie 'claude' sau 'codex' (acum: $NOVA_AGENT_RUNTIME)."
+}
 
 # ─── Refuză să ruleze în WSL ────────────────────────────────────────────
 # Daca scriptul e cumva invocat din WSL via PowerShell.exe, redirectam la bash.
@@ -106,87 +113,113 @@ if (-not $nodeOk) {
   }
 }
 
-# ─── Claude Code CLI ─────────────────────────────────────────────────────
-Nova-Step "Verific Claude Code CLI (agenții AI au nevoie ca să gândească)"
-if (Get-Command claude -ErrorAction SilentlyContinue) {
-  Nova-Ok "Claude Code deja instalat ($(claude --version 2>$null | Select-Object -First 1))"
-} else {
-  Nova-Say "Instalez Claude Code CLI..."
-  npm install -g '@anthropic-ai/claude-code'
-  if ($LASTEXITCODE -ne 0) { Nova-Fail "npm install Claude Code a esuat" }
-  Nova-Ok "Claude Code instalat"
-  Nova-Dim "Va trebui să te autentifici cu 'claude' (o singură dată) înainte ca agenții să vorbească cu Anthropic."
-}
+# ─── Runtime AI: Claude Code sau OpenAI Codex ────────────────────────────
+if ($NOVA_AGENT_RUNTIME -eq 'codex') {
 
-# ─── Verifica autentificarea Claude Code ────────────────────────────────
-# Claude Code stocheaza credentialele in $env:USERPROFILE\.claude\.credentials.json
-# (pe Windows uses keychain-like store, dar fisierul exista). Fara autentificare,
-# primul boot al claude in PTY se blocheaza la "Select login method".
-$claudeCredFile = Join-Path $env:USERPROFILE '.claude\.credentials.json'
-if (-not (Test-Path $claudeCredFile)) {
-  Nova-Warn "Claude Code NU autentificat (lipseste $claudeCredFile)."
-  Write-Host ""
-  Write-Host "  Trebuie sa rulezi MANUAL " -NoNewline
-  Write-Host "claude" -ForegroundColor Cyan -NoNewline
-  Write-Host " o data inainte de nova-init.ps1:"
-  Write-Host ""
-  Write-Host "    1. Tasteaza: " -NoNewline; Write-Host "claude" -ForegroundColor Cyan
-  Write-Host "    2. Alege tema (1 = Auto)"
-  Write-Host "    3. Alege login method (1 = Claude subscription Pro/Max)"
-  Write-Host "    4. Browser-ul se deschide pentru autentificare cu contul Anthropic"
-  Write-Host "    5. Cand vezi prompt-ul " -NoNewline; Write-Host ">" -ForegroundColor Cyan -NoNewline; Write-Host ", iesi cu " -NoNewline; Write-Host "/exit" -ForegroundColor Cyan
-  Write-Host ""
-  Write-Host "  Apoi reia: " -NoNewline; Write-Host ".\nova-prereq.ps1" -ForegroundColor Cyan -NoNewline; Write-Host " (verifica) si " -NoNewline; Write-Host ".\nova-init.ps1" -ForegroundColor Cyan -NoNewline; Write-Host " (wizard)."
-  Write-Host ""
-  Nova-Fail "Autentifica claude inainte sa continui."
-}
-Nova-Ok "Claude Code autentificat"
-
-# ─── Seteaza skipDangerousModePermissionPrompt ──────────────────────────
-# Claude Code 2.1.133+ a adaugat o avertizare manuala pentru
-# --dangerously-skip-permissions care blocheaza PTY-ul cortextOS.
-$claudeSettingsFile = Join-Path $env:USERPROFILE '.claude\settings.json'
-if (Test-Path $claudeSettingsFile) {
-  $settings = Get-Content $claudeSettingsFile -Raw | ConvertFrom-Json
-  if (-not $settings.skipDangerousModePermissionPrompt) {
-    Nova-Say "Setez skipDangerousModePermissionPrompt in .claude\settings.json..."
-    # Salveaza o copie a versiunii originale inainte sa mutam (o data, nu suprascriem).
-    $settingsBackup = "$claudeSettingsFile.nova-bak"
-    if (-not (Test-Path $settingsBackup)) {
-      Copy-Item $claudeSettingsFile $settingsBackup -ErrorAction SilentlyContinue
-    }
-    $settings | Add-Member -NotePropertyName 'skipDangerousModePermissionPrompt' -NotePropertyValue $true -Force
-    $settings | ConvertTo-Json -Depth 20 | Set-Content $claudeSettingsFile -Encoding UTF8
-    Nova-Ok "skipDangerousModePermissionPrompt setat"
+  Nova-Step "Verific OpenAI Codex CLI (runtime-ul agenților Nova Cortex)"
+  if (Get-Command codex -ErrorAction SilentlyContinue) {
+    Nova-Ok "Codex CLI deja instalat ($(codex --version 2>$null | Select-Object -First 1))"
   } else {
-    Nova-Ok "skipDangerousModePermissionPrompt deja setat"
+    Nova-Say "Instalez OpenAI Codex CLI..."
+    npm install -g '@openai/codex'
+    if ($LASTEXITCODE -ne 0) { Nova-Fail "npm install Codex a esuat" }
+    Nova-Ok "Codex CLI instalat"
   }
-} else {
-  New-Item -ItemType Directory -Path (Join-Path $env:USERPROFILE '.claude') -Force | Out-Null
-  '{"skipDangerousModePermissionPrompt": true}' | Set-Content $claudeSettingsFile -Encoding UTF8
-  Nova-Ok "Creat .claude\settings.json cu skipDangerousModePermissionPrompt"
-}
 
-# ─── Marcheaza onboarding-ul ca terminat in ~/.claude.json ──────────────
-# Daca aceste flag-uri lipsesc, claude rulat in PTY relanseaza first-run wizard.
-$claudeProfileFile = Join-Path $env:USERPROFILE '.claude.json'
-if (Test-Path $claudeProfileFile) {
-  $claudeProfile = Get-Content $claudeProfileFile -Raw | ConvertFrom-Json
-  if (-not $claudeProfile.hasCompletedOnboarding) {
-    Nova-Say "Marchez onboarding Claude Code ca terminat in .claude.json..."
-    # Salveaza o copie a versiunii originale inainte sa mutam (o data, nu suprascriem).
-    $profileBackup = "$claudeProfileFile.nova-bak"
-    if (-not (Test-Path $profileBackup)) {
-      Copy-Item $claudeProfileFile $profileBackup -ErrorAction SilentlyContinue
-    }
-    $claudeProfile | Add-Member -NotePropertyName 'hasCompletedOnboarding' -NotePropertyValue $true -Force
-    $claudeProfile | Add-Member -NotePropertyName 'hasInitOnboardingBeenShown' -NotePropertyValue $true -Force
-    $claudeProfile | Add-Member -NotePropertyName 'lastOnboardingVersion' -NotePropertyValue '2.0.26' -Force
-    $claudeProfile | ConvertTo-Json -Depth 20 | Set-Content $claudeProfileFile -Encoding UTF8
-    Nova-Ok "Flag hasCompletedOnboarding setat"
-  } else {
-    Nova-Ok "Onboarding Claude Code deja marcat ca terminat"
+  $codexAuthOk = ($env:OPENAI_API_KEY -or (Test-Path (Join-Path $env:USERPROFILE '.codex\auth.json')))
+  if (-not $codexAuthOk) {
+    Nova-Warn "Codex CLI pare instalat, dar nu văd autentificare OpenAI."
+    Write-Host ""
+    Write-Host "  Trebuie să rulezi MANUAL " -NoNewline
+    Write-Host "codex" -ForegroundColor Cyan -NoNewline
+    Write-Host " o dată înainte de nova-init.ps1:"
+    Write-Host ""
+    Write-Host "    1. Tastează: " -NoNewline; Write-Host "codex" -ForegroundColor Cyan
+    Write-Host "    2. Autentifică-te cu ChatGPT/OpenAI când ți se cere"
+    Write-Host "    3. Când ajungi în Codex, ieși cu " -NoNewline; Write-Host "/exit" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "  Alternativ, setează " -NoNewline; Write-Host "OPENAI_API_KEY" -ForegroundColor Cyan -NoNewline; Write-Host " pentru userul care rulează agenții."
+    Write-Host "  Apoi reia: " -NoNewline
+    Write-Host "`$env:NOVA_AGENT_RUNTIME='codex'; .\nova-prereq.ps1" -ForegroundColor Cyan
+    Write-Host ""
+    Nova-Fail "Autentifică Codex/OpenAI înainte să continui."
   }
+  Nova-Ok "Codex/OpenAI autentificat"
+
+} else {
+
+  Nova-Step "Verific Claude Code CLI (agenții AI au nevoie ca să gândească)"
+  if (Get-Command claude -ErrorAction SilentlyContinue) {
+    Nova-Ok "Claude Code deja instalat ($(claude --version 2>$null | Select-Object -First 1))"
+  } else {
+    Nova-Say "Instalez Claude Code CLI..."
+    npm install -g '@anthropic-ai/claude-code'
+    if ($LASTEXITCODE -ne 0) { Nova-Fail "npm install Claude Code a esuat" }
+    Nova-Ok "Claude Code instalat"
+    Nova-Dim "Va trebui să te autentifici cu 'claude' (o singură dată) înainte ca agenții să vorbească cu Anthropic."
+  }
+
+  # Claude Code stocheaza credentialele in $env:USERPROFILE\.claude\.credentials.json.
+  # Fara autentificare, primul boot al claude in PTY se blocheaza la "Select login method".
+  $claudeCredFile = Join-Path $env:USERPROFILE '.claude\.credentials.json'
+  if (-not (Test-Path $claudeCredFile)) {
+    Nova-Warn "Claude Code NU autentificat (lipseste $claudeCredFile)."
+    Write-Host ""
+    Write-Host "  Trebuie sa rulezi MANUAL " -NoNewline
+    Write-Host "claude" -ForegroundColor Cyan -NoNewline
+    Write-Host " o data inainte de nova-init.ps1:"
+    Write-Host ""
+    Write-Host "    1. Tasteaza: " -NoNewline; Write-Host "claude" -ForegroundColor Cyan
+    Write-Host "    2. Alege tema (1 = Auto)"
+    Write-Host "    3. Alege login method (1 = Claude subscription Pro/Max)"
+    Write-Host "    4. Browser-ul se deschide pentru autentificare cu contul Anthropic"
+    Write-Host "    5. Cand vezi prompt-ul " -NoNewline; Write-Host ">" -ForegroundColor Cyan -NoNewline; Write-Host ", iesi cu " -NoNewline; Write-Host "/exit" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "  Apoi reia: " -NoNewline; Write-Host ".\nova-prereq.ps1" -ForegroundColor Cyan -NoNewline; Write-Host " (verifica) si " -NoNewline; Write-Host ".\nova-init.ps1" -ForegroundColor Cyan -NoNewline; Write-Host " (wizard)."
+    Write-Host ""
+    Nova-Fail "Autentifica claude inainte sa continui."
+  }
+  Nova-Ok "Claude Code autentificat"
+
+  # Seteaza skipDangerousModePermissionPrompt — evita prompt-ul de --dangerously-skip-permissions
+  # care blocheaza PTY-ul cortextOS (Claude Code 2.1.133+).
+  $claudeSettingsFile = Join-Path $env:USERPROFILE '.claude\settings.json'
+  if (Test-Path $claudeSettingsFile) {
+    $settings = Get-Content $claudeSettingsFile -Raw | ConvertFrom-Json
+    if (-not $settings.skipDangerousModePermissionPrompt) {
+      Nova-Say "Setez skipDangerousModePermissionPrompt in .claude\settings.json..."
+      $settingsBackup = "$claudeSettingsFile.nova-bak"
+      if (-not (Test-Path $settingsBackup)) { Copy-Item $claudeSettingsFile $settingsBackup -ErrorAction SilentlyContinue }
+      $settings | Add-Member -NotePropertyName 'skipDangerousModePermissionPrompt' -NotePropertyValue $true -Force
+      $settings | ConvertTo-Json -Depth 20 | Set-Content $claudeSettingsFile -Encoding UTF8
+      Nova-Ok "skipDangerousModePermissionPrompt setat"
+    } else {
+      Nova-Ok "skipDangerousModePermissionPrompt deja setat"
+    }
+  } else {
+    New-Item -ItemType Directory -Path (Join-Path $env:USERPROFILE '.claude') -Force | Out-Null
+    '{"skipDangerousModePermissionPrompt": true}' | Set-Content $claudeSettingsFile -Encoding UTF8
+    Nova-Ok "Creat .claude\settings.json cu skipDangerousModePermissionPrompt"
+  }
+
+  # Marcheaza onboarding-ul ca terminat — evita first-run wizard la fiecare lansare PTY.
+  $claudeProfileFile = Join-Path $env:USERPROFILE '.claude.json'
+  if (Test-Path $claudeProfileFile) {
+    $claudeProfile = Get-Content $claudeProfileFile -Raw | ConvertFrom-Json
+    if (-not $claudeProfile.hasCompletedOnboarding) {
+      Nova-Say "Marchez onboarding Claude Code ca terminat in .claude.json..."
+      $profileBackup = "$claudeProfileFile.nova-bak"
+      if (-not (Test-Path $profileBackup)) { Copy-Item $claudeProfileFile $profileBackup -ErrorAction SilentlyContinue }
+      $claudeProfile | Add-Member -NotePropertyName 'hasCompletedOnboarding' -NotePropertyValue $true -Force
+      $claudeProfile | Add-Member -NotePropertyName 'hasInitOnboardingBeenShown' -NotePropertyValue $true -Force
+      $claudeProfile | Add-Member -NotePropertyName 'lastOnboardingVersion' -NotePropertyValue '2.0.26' -Force
+      $claudeProfile | ConvertTo-Json -Depth 20 | Set-Content $claudeProfileFile -Encoding UTF8
+      Nova-Ok "Flag hasCompletedOnboarding setat"
+    } else {
+      Nova-Ok "Onboarding Claude Code deja marcat ca terminat"
+    }
+  }
+
 }
 
 # ─── Visual Studio Build Tools (C++ compiler pentru node-pty) ──────────
@@ -323,7 +356,11 @@ Write-Host "╰─────────────────────�
 Write-Host ""
 Write-Host "Versiuni confirmate:"
 Write-Host "  Node.js:        $(node --version)"
-Write-Host "  Claude Code:    $((claude --version 2>$null | Select-Object -First 1))"
+if ($NOVA_AGENT_RUNTIME -eq 'codex') {
+  Write-Host "  Codex CLI:      $((codex --version 2>$null | Select-Object -First 1))"
+} else {
+  Write-Host "  Claude Code:    $((claude --version 2>$null | Select-Object -First 1))"
+}
 Write-Host "  cortextOS:      instalat"
 Write-Host "  PM2:            $(pm2 --version 2>$null | Select-Object -First 1)"
 Write-Host ""
