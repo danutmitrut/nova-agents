@@ -51,6 +51,17 @@ NOVA_AGENT_RUNTIME=codex bash nova-init.sh
 
 Intra in <https://api.slack.com/apps>.
 
+### Varianta rapida (recomandat): From manifest
+
+1. **Create New App** → **From a manifest**
+2. Alege workspace-ul corect
+3. Paste continutul din [`slack-app-manifest.json`](./slack-app-manifest.json) (deja are scopes + events + Socket Mode pre-configurate)
+4. Next → Create
+
+Sari direct la **Sectiunea 2** pentru App-Level Token, apoi **Sectiunea 5** pentru Reinstall to Workspace. Sectiunile 3 (scopes) si 4 (events) sunt deja completate prin manifest.
+
+### Varianta clasica: From scratch
+
 1. Create New App
 2. From scratch
 3. App name: `orchestrator1` sau `Nova Cortex`
