@@ -3,9 +3,9 @@
 # Rulează înainte de nova-init.ps1. Detectează versiunea de Windows + PowerShell,
 # instalează tool-urile lipsă. Idempotent: safe de rerulat.
 #
-# NECESITA DREPTURI DE ADMINISTRATOR — instalam VS Build Tools, jq si Python via
-# winget (toate cer admin) + cortextOS face npm link global. Daca rulezi din shell
-# normal, scriptul se opreste cu instructiuni clare.
+# Drepturi de Administrator — recomandate, dar nu obligatorii. Fara admin, winget
+# va declansa UAC popup per pachet instalat (3-4 prompts). Cu admin, un singur
+# prompt la deschiderea shell-ului si restul merge silent.
 #
 # Suportă: Windows 10/11 nativ cu PowerShell 5.1+ sau 7+. NU rulează în WSL2 —
 # pentru WSL2/Linux foloseste nova-prereq.sh.
