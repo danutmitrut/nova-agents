@@ -33,7 +33,7 @@ Ghidul complet este in [`docs/installation-options.md`](docs/installation-option
 **Mac or Linux** (Ubuntu/Debian) terminal:
 
 ```bash
-git clone https://github.com/<your-fork>/nova-agents.git
+git clone https://github.com/danutmitrut/nova-agents.git
 cd nova-agents
 bash nova-init.sh
 ```
@@ -42,7 +42,7 @@ bash nova-init.sh
 
 ```powershell
 # Open PowerShell as Administrator (required — see below)
-git clone https://github.com/<your-fork>/nova-agents.git
+git clone https://github.com/danutmitrut/nova-agents.git
 cd nova-agents
 .\nova-prereq.ps1   # installs VS Build Tools + jq + Python + Node + Claude + cortextOS + PM2
 .\nova-init.ps1     # wizard (can run from regular PowerShell after prereq passes)
