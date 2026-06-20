@@ -55,35 +55,21 @@ if ($psVersion.Major -lt 5) {
 }
 Nova-Ok "PowerShell $psVersion"
 
-# ─── Verifica drepturi Administrator ────────────────────────────────────
-# nova-prereq necesita admin pentru:
-#   - winget install Microsoft.VisualStudio.2022.BuildTools (VS BuildTools)
-#   - winget install jqlang.jq, Python.Python.3.x
-#   - cortextos install (npm link global cere drepturi de scriere in %APPDATA%\npm)
-# Fara admin, multe operatiuni esueaza silent sau cu UAC prompts care intrerup
-# fluxul. Fail-uim devreme cu un mesaj clar in loc sa lasam user-ul sa descopere
-# la jumatatea instalarii.
+# ─── Detectare drepturi Administrator (informativ) ──────────────────────
+# Daca rulezi fara admin, winget va declansa UAC prompts pe parcursul instalarii
+# pentru fiecare pachet system-wide (VS BuildTools, jq, Python). Accepta-le cand
+# apar. Daca preferi un singur prompt la inceput, deschide PowerShell ca Admin.
 function Test-IsAdmin {
   $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent()
   $principal = New-Object System.Security.Principal.WindowsPrincipal($currentUser)
   return $principal.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)
 }
-if (-not (Test-IsAdmin)) {
-  Write-Host ""
-  Write-Host "  Acest script trebuie rulat ca Administrator." -ForegroundColor Red
-  Write-Host ""
-  Write-Host "  De ce: instalam Visual Studio Build Tools, jq si Python via winget — toate cer drepturi de admin."
-  Write-Host ""
-  Write-Host "  Cum: " -NoNewline
-  Write-Host "Start → 'powershell' → click dreapta → 'Run as administrator'" -ForegroundColor Cyan
-  Write-Host "  Apoi: " -NoNewline
-  Write-Host "cd `$env:USERPROFILE/nova-agents" -ForegroundColor Cyan
-  Write-Host "  Apoi: " -NoNewline
-  Write-Host "./nova-prereq.ps1" -ForegroundColor Cyan
-  Write-Host ""
-  Nova-Fail "Re-ruleaza ca Admin."
+if (Test-IsAdmin) {
+  Nova-Ok "Drepturi Administrator detectate"
+} else {
+  Nova-Warn "Rulezi fara drepturi Administrator. UAC va aparea per pachet instalat."
+  Nova-Dim "Daca preferi un singur prompt la inceput, opreste cu Ctrl+C si redeschide PowerShell ca Administrator."
 }
-Nova-Ok "Drepturi Administrator confirmate"
 
 # ─── Node.js 20+ ─────────────────────────────────────────────────────────
 Nova-Step "Verific Node.js (runtime pentru agenții Nova Cortex)"
