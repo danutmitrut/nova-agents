@@ -245,6 +245,15 @@ if (-not $vsPath) {
 $devShellDll = Join-Path $vsPath 'Common7\Tools\Microsoft.VisualStudio.DevShell.dll'
 if (Test-Path $devShellDll) {
   Nova-Say "Sourcing Visual Studio Developer Shell vars (cl.exe + INCLUDE + LIB)..."
+  # Enter-VsDevShell cheama intern vswhere.exe fara cale absoluta. Pe o instalare
+  # proaspata de Build Tools, folderul Installer (unde sta vswhere) nu e pe PATH,
+  # asa ca sourcing-ul esueaza silentios ('vswhere.exe is not recognized') si
+  # cl.exe NU ajunge pe PATH — desi pasul raporta fals succes. Adaugam folderul
+  # vswhere pe PATH inainte sa-l chemam.
+  $vswhereDir = Split-Path $vsInstaller
+  if ((Test-Path $vsInstaller) -and ($env:Path -notlike "*$vswhereDir*")) {
+    $env:Path = "$vswhereDir;$env:Path"
+  }
   Import-Module $devShellDll
   Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64' | Out-Null
   if (Get-Command cl.exe -ErrorAction SilentlyContinue) {
