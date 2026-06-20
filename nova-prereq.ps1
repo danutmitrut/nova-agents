@@ -287,21 +287,76 @@ if (Get-Command jq -ErrorAction SilentlyContinue) {
 }
 
 # ─── Python 3 (fallback pentru node-gyp + cortextos KB venv) ────────────
+# ATENTIE: 'python'/'python3' pot rezolva spre stub-ul Microsoft Store — un
+# reparse-point de 0 bytes in ...\WindowsApps\ care doar deschide Store-ul si
+# iese non-zero. Acela trece de Get-Command dar NU e Python real, asa ca venv-ul
+# cortextOS esueaza ("Python was not found; run without arguments to install
+# from the Microsoft Store"). Validam ca interpretorul chiar ruleaza si
+# raporteaza 3.x, si ignoram explicit stub-ul WindowsApps.
+function Test-RealPython {
+  param([string]$exe)
+  $cmd = Get-Command $exe -ErrorAction SilentlyContinue
+  if (-not $cmd) { return $null }
+  if ($cmd.Source -like '*\WindowsApps\*') { return $null }  # stub Microsoft Store
+  try {
+    $major = (& $exe -c "import sys; print(sys.version_info[0])" 2>$null)
+    if ($LASTEXITCODE -eq 0 -and "$major".Trim() -eq '3') { return $cmd.Source }
+  } catch {}
+  return $null
+}
+
 Nova-Step "Verific Python 3 (folosit de node-gyp + cortextos Knowledge Base venv)"
-$hasPython = (Get-Command python -ErrorAction SilentlyContinue) -or (Get-Command python3 -ErrorAction SilentlyContinue)
-if ($hasPython) {
-  $pyVer = $null
-  try { $pyVer = (python --version 2>&1) } catch {}
-  Nova-Ok "Python 3 deja prezent ($pyVer)"
+$pythonExe = Test-RealPython 'python'
+if (-not $pythonExe) { $pythonExe = Test-RealPython 'python3' }
+# Launcher 'py' (instalat de Python.org/winget) e cea mai sigura cale, ocoleste
+# ordinea de PATH si stub-ul Store.
+if (-not $pythonExe -and (Get-Command py -ErrorAction SilentlyContinue)) {
+  try { if ("$(py -3 -c 'import sys; print(sys.version_info[0])' 2>$null)".Trim() -eq '3') { $pythonExe = 'py -3' } } catch {}
+}
+
+if ($pythonExe) {
+  Nova-Ok "Python 3 real detectat ($pythonExe)"
 } else {
-  Nova-Say "Instalez Python 3 via winget..."
+  Nova-Say "Python 3 lipseste (sau doar stub Microsoft Store). Instalez via winget..."
   winget install --id Python.Python.3.12 -e --accept-package-agreements --accept-source-agreements --silent
   if ($LASTEXITCODE -ne 0) { Nova-Fail "winget install Python a esuat (exit $LASTEXITCODE)" }
   $env:Path = [System.Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path','User')
-  if (-not ((Get-Command python -ErrorAction SilentlyContinue) -or (Get-Command python3 -ErrorAction SilentlyContinue))) {
-    Nova-Warn "Python instalat dar nu apare pe PATH. KB venv poate sa cracteze, dar continuam — nu e critic pentru agentii de baza."
+  $pythonExe = Test-RealPython 'python'
+  if (-not $pythonExe) { $pythonExe = Test-RealPython 'python3' }
+  if (-not $pythonExe -and (Get-Command py -ErrorAction SilentlyContinue)) {
+    try { if ("$(py -3 -c 'import sys; print(sys.version_info[0])' 2>$null)".Trim() -eq '3') { $pythonExe = 'py -3' } } catch {}
+  }
+  if ($pythonExe) {
+    Nova-Ok "Python 3 instalat si functional ($pythonExe)"
   } else {
-    Nova-Ok "Python 3 instalat si pe PATH"
+    Nova-Warn "Python instalat dar nu raspunde inca pe PATH-ul sesiunii curente."
+    Nova-Dim "Daca stub-ul Microsoft Store iese in fata: Settings > Apps > Advanced app settings > App execution aliases > python.exe + python3.exe = Off."
+    Nova-Dim "Apoi inchide si redeschide PowerShell. KB venv nu e critic pentru agentii de baza."
+  }
+}
+
+# ─── Asigura comanda 'python3' pentru cortextOS kb-setup.sh ──────────────
+# cortextOS bus/kb-setup.sh cheama bare 'python3 -m venv'. Pe Windows, Python.org
+# si winget instaleaza DOAR python.exe (nu python3.exe) — singurul 'python3' din
+# sistem e de obicei stub-ul Microsoft Store, care rupe venv-ul ("Python was not
+# found..."). Neutralizam stub-ul si cream un shim python3.exe langa python.exe-ul
+# real, ca venv-ul KB sa se creeze fara interventie manuala.
+if ($pythonExe) {
+  $realPyExe = if ($pythonExe -eq 'py -3') { (& py -3 -c "import sys; print(sys.executable)" 2>$null) } else { $pythonExe }
+  if ($realPyExe -and (Test-Path $realPyExe)) {
+    foreach ($stub in @("$env:LOCALAPPDATA\Microsoft\WindowsApps\python.exe", "$env:LOCALAPPDATA\Microsoft\WindowsApps\python3.exe")) {
+      if ((Test-Path $stub) -and ((Get-Item $stub).Length -eq 0)) {
+        Remove-Item $stub -Force -ErrorAction SilentlyContinue
+        Nova-Dim "Eliminat stub Microsoft Store: $stub"
+      }
+    }
+    $py3Shim = Join-Path (Split-Path $realPyExe) 'python3.exe'
+    if (-not (Test-Path $py3Shim)) {
+      Copy-Item $realPyExe $py3Shim -Force -ErrorAction SilentlyContinue
+      if (Test-Path $py3Shim) { Nova-Ok "Creat shim python3.exe (pentru cortextOS kb-setup.sh)" }
+    } else {
+      Nova-Ok "Comanda python3 deja disponibila"
+    }
   }
 }
 
