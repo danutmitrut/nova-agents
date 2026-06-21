@@ -80,7 +80,7 @@ echo ""
 # ─── Alegere runtime (înainte de prereq) ─────────────────────────────────
 if [[ -z "${NOVA_AGENT_RUNTIME:-}" ]]; then
   echo ""
-  echo -e "${BOLD}Alege runtime-ul agenților tăi:${RESET}"
+  echo -e "${BOLD}Pasul 1 din 4:${RESET} Alege runtime-ul agenților tăi"
   echo ""
   echo "  1) OpenAI Codex   — rulează pe abonamentul tău ChatGPT Plus/Pro"
   echo "  2) Claude Code    — rulează pe abonamentul tău Anthropic (Pro/Max)"
@@ -102,6 +102,25 @@ case "$NOVA_AGENT_RUNTIME" in
 esac
 nova_ok "Runtime ales: ${BOLD}$NOVA_AGENT_RUNTIME${RESET}"
 
+# ─── Alegere canal (Pasul 2, înainte de prereq) ───────────────────────────
+if [[ -z "${NOVA_CONTROL_CHANNEL:-}" ]]; then
+  echo ""
+  echo -e "${BOLD}Pasul 2 din 4:${RESET} Pe ce canal vrei să vorbești cu agenții tăi?"
+  echo ""
+  echo "  1) Telegram   — bot privat, simplu de configurat, ideal pentru uz personal"
+  echo "  2) Slack      — Socket Mode bridge, ideal pentru echipe sau workspace business"
+  echo ""
+  nova_dim "Telegram este calea clasică. Slack pornește un bridge Socket Mode separat, util pentru echipe."
+  read -r -p "  → Alege 1 sau 2 [1]: " CHANNEL_CHOICE
+  CHANNEL_CHOICE="${CHANNEL_CHOICE:-1}"
+  case "$CHANNEL_CHOICE" in
+    1) NOVA_CONTROL_CHANNEL="telegram" ;;
+    2) NOVA_CONTROL_CHANNEL="slack" ;;
+    *) nova_fail "Alegere invalidă. Reia nova-init.sh și tastează 1 sau 2." ;;
+  esac
+fi
+nova_ok "Canal ales: ${BOLD}$NOVA_CONTROL_CHANNEL${RESET}"
+
 # ─── Rulează prereq dacă cortextOS lipsește ──────────────────────────────
 if ! command -v cortextos >/dev/null 2>&1; then
   nova_say "Întâi ne asigurăm că toolbox-ul tău e gata..."
@@ -116,7 +135,7 @@ fi
 nova_step "Configurăm workspace-ul tău Nova Cortex"
 
 echo ""
-echo -e "${BOLD}Pasul 1:${RESET} Care e numele tău?"
+echo -e "${BOLD}Pasul 3 din 4:${RESET} Care e numele tău?"
 nova_dim "Folosit ca etichetă pentru workspace-ul tău privat (ex: \"nova-dan\"). Litere mici, fără spații."
 read -r -p "  → " NOVA_USER
 NOVA_USER=$(echo "$NOVA_USER" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-')
@@ -126,28 +145,11 @@ fi
 ORG="nova-$NOVA_USER"
 nova_ok "Nume workspace: ${BOLD}$ORG${RESET}"
 
-# ─── Pasul 2: Canal de control ────────────────────────────────────────────
-echo ""
-echo -e "${BOLD}Pasul 2:${RESET} Pe ce canal vrei să vorbești cu agenții tăi?"
-echo ""
-echo "  1) Telegram   — bot privat, simplu de configurat, ideal pentru uz personal"
-echo "  2) Slack      — Socket Mode bridge, ideal pentru echipe sau workspace business"
-echo ""
-nova_dim "Telegram este calea clasică. Slack pornește un bridge Socket Mode separat, util pentru echipe."
-read -r -p "  → Alege 1 sau 2 [1]: " CHANNEL_CHOICE
-CHANNEL_CHOICE="${CHANNEL_CHOICE:-1}"
-case "$CHANNEL_CHOICE" in
-  1) NOVA_CONTROL_CHANNEL="telegram" ;;
-  2) NOVA_CONTROL_CHANNEL="slack" ;;
-  *) nova_fail "Alegere invalidă. Reia nova-init.sh și tastează 1 sau 2." ;;
-esac
-nova_ok "Canal ales: ${BOLD}$NOVA_CONTROL_CHANNEL${RESET}"
-
-# ─── Pasul 3+: Colectare credențiale canal ────────────────────────────────
+# ─── Pasul 4: Colectare credențiale canal ────────────────────────────────
 if [[ "$NOVA_CONTROL_CHANNEL" == "telegram" ]]; then
 
   echo ""
-  echo -e "${BOLD}Pasul 3:${RESET} Tokenul de bot Telegram pentru Nova Cortex Orchestrator"
+  echo -e "${BOLD}Pasul 4 din 4:${RESET} Tokenul de bot Telegram pentru Nova Cortex Orchestrator"
   nova_dim "Dacă nu ai unul: deschide Telegram, scrie la @BotFather, trimite /newbot, urmează pașii."
   nova_dim "BotFather îți va da un token care arată ca 123456:AAxxxxxxxxxxxx — paste-uiește-l mai jos."
   nova_dim "Vei avea nevoie de un AL DOILEA token mai târziu pentru Analyst — Orchestratorul ți-l va cere în /onboarding."
@@ -162,7 +164,7 @@ if [[ "$NOVA_CONTROL_CHANNEL" == "telegram" ]]; then
   # CHAT_ID si ALLOWED_USER setate (gate de securitate in agent-manager.ts).
   # Le obtinem automat din /getUpdates dupa ce userul trimite primul mesaj.
   echo ""
-  echo -e "${BOLD}Pasul 4:${RESET} Deschide bot-ul în Telegram"
+  echo -e "${BOLD}Conectează bot-ul:${RESET} Deschide bot-ul în Telegram"
   nova_dim "Bot-ul tău are deja tokenul. Pe Telegram caută numele lui (cel pe care l-ai dat la BotFather)."
   nova_dim "Trimite-i ${BOLD}/start${RESET}, apoi orice mesaj (ex: \"salut\"). Apoi întoarce-te aici și apasă Enter."
   read -r -p "  → Apasă Enter când ai trimis mesajul... "
@@ -192,7 +194,7 @@ if [[ "$NOVA_CONTROL_CHANNEL" == "telegram" ]]; then
 else
   # ─── Slack: colectare token-uri ────────────────────────────────────────
   echo ""
-  echo -e "${BOLD}Pasul 3:${RESET} Credențiale Slack"
+  echo -e "${BOLD}Pasul 4 din 4:${RESET} Credențiale Slack"
   echo ""
   nova_dim "Ai nevoie de un Slack App creat la api.slack.com/apps cu Socket Mode activat."
   nova_dim "SLACK_BOT_TOKEN: OAuth & Permissions → Bot User OAuth Token (xoxb-...)"
