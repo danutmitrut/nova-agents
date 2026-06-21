@@ -145,18 +145,20 @@ if [[ "$NOVA_AGENT_RUNTIME" == "codex" ]]; then
   fi
 
   if [[ -z "${OPENAI_API_KEY:-}" && ! -f "$HOME/.codex/auth.json" ]]; then
-    nova_warn "Codex CLI pare instalat, dar nu văd autentificare OpenAI pentru userul curent."
+    nova_warn "Codex CLI instalat, dar nu e autentificat încă."
     echo ""
-    echo -e "  ${BOLD}Trebuie să rulezi MANUAL ${CYAN}codex${RESET}${BOLD} o dată înainte de nova-init.sh:${RESET}"
+    echo -e "  ${BOLD}Deschide un tab nou în Terminal și rulează:${RESET}"
     echo ""
-    echo -e "    1. Tastează: ${CYAN}codex${RESET}"
-    echo "    2. Autentifică-te cu ChatGPT/OpenAI când ți se cere"
-    echo -e "    3. Când ajungi în Codex, ieși cu ${CYAN}/exit${RESET}"
+    echo -e "      ${CYAN}codex${RESET}"
     echo ""
-    echo -e "  Alternativ, setează ${CYAN}OPENAI_API_KEY${RESET} pentru userul care rulează agenții."
-    echo -e "  Apoi reia: ${CYAN}NOVA_AGENT_RUNTIME=codex bash nova-prereq.sh${RESET} și ${CYAN}NOVA_AGENT_RUNTIME=codex bash nova-init.sh${RESET}."
+    echo "  Autentifică-te cu contul ChatGPT/OpenAI când ți se cere."
+    echo -e "  Când apare promptul Codex, tastează ${CYAN}/exit${RESET} și închide tab-ul."
     echo ""
-    nova_fail "Autentifică Codex/OpenAI înainte să continui."
+    read -r -p "  → Apasă Enter când ai terminat autentificarea... "
+    echo ""
+    if [[ -z "${OPENAI_API_KEY:-}" && ! -f "$HOME/.codex/auth.json" ]]; then
+      nova_fail "Autentificarea Codex nu a fost detectată. Verifică că ai rulat 'codex' și te-ai logat, apoi reia: bash nova-init.sh"
+    fi
   fi
   nova_ok "Codex/OpenAI autentificat"
 
