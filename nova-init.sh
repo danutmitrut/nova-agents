@@ -121,14 +121,12 @@ if [[ -z "${NOVA_CONTROL_CHANNEL:-}" ]]; then
 fi
 nova_ok "Canal ales: ${BOLD}$NOVA_CONTROL_CHANNEL${RESET}"
 
-# ─── Rulează prereq dacă cortextOS lipsește ──────────────────────────────
-if ! command -v cortextos >/dev/null 2>&1; then
-  nova_say "Întâi ne asigurăm că toolbox-ul tău e gata..."
-  if [[ -f "$SCRIPT_DIR/nova-prereq.sh" ]]; then
-    NOVA_AGENT_RUNTIME="$NOVA_AGENT_RUNTIME" bash "$SCRIPT_DIR/nova-prereq.sh"
-  else
-    nova_fail "cortextOS nu e instalat și nova-prereq.sh nu e lângă acest script. Rulează nova-prereq.sh manual întâi."
-  fi
+# ─── Rulează prereq (verifică și instalează dependențe) ──────────────────
+nova_say "Verificăm că toolbox-ul tău e gata..."
+if [[ -f "$SCRIPT_DIR/nova-prereq.sh" ]]; then
+  NOVA_AGENT_RUNTIME="$NOVA_AGENT_RUNTIME" bash "$SCRIPT_DIR/nova-prereq.sh"
+else
+  nova_fail "nova-prereq.sh lipsește lângă acest script. Re-clonează repo-ul nova-agents."
 fi
 
 # ─── Wizard ───────────────────────────────────────────────────────────────
