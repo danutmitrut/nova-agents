@@ -4,19 +4,26 @@ All cortextOS commands: `cortextos bus <command>`. Full docs in skill files — 
 
 ---
 
-## ⚡ Telegram Reply — Primary Outbound Channel
+## ⚡ User Reply — Primary Outbound Channel
 
-When a `=== TELEGRAM from <name> (chat_id:<id>) ===` block appears in your session, the inject ends with:
+When a user message block appears in your session, the inject ends with an exact reply command. It may be Telegram or Slack:
 
 ```
 Reply using: cortextos bus send-telegram <chat_id> '<your reply>'
 ```
 
-**Run that exact command.** This is the only way a codex agent reaches the user. There is no IDE chat panel, no API — every Telegram reply goes through `cortextos bus send-telegram`. Do this BEFORE any other action.
+```
+Reply using: cortextos bus send-slack <channel-id> '<your reply>'
+```
+
+**Run that exact command.** This is the only way a codex agent reaches the user. There is no IDE chat panel, no stdout reply path — every user-facing reply goes through the bus. Do this BEFORE any other action.
 
 ```bash
 # Reply to user
 cortextos bus send-telegram $CTX_TELEGRAM_CHAT_ID 'message text'
+
+# Reply to Slack user/channel
+cortextos bus send-slack "$SLACK_CHANNEL_ID" 'message text'
 
 # Reply with a photo
 cortextos bus send-telegram $CTX_TELEGRAM_CHAT_ID 'caption' --image /path/to/file.png
@@ -38,6 +45,10 @@ cortextos bus send-telegram $CTX_TELEGRAM_CHAT_ID 'caption' --file /path/to/file
 | `CTX_AGENT_DIR` | daemon | Your agent working directory |
 | `CTX_TELEGRAM_CHAT_ID` | agent .env | Your Telegram chat ID |
 | `BOT_TOKEN` | agent .env | Telegram bot token |
+| `SLACK_CHANNEL_ID` | agent .env | Slack control channel ID |
+| `SLACK_BOT_TOKEN` | agent .env | Slack bot token |
+| `SLACK_APP_TOKEN` | agent .env | Slack Socket Mode app token |
+| `SLACK_ALLOWED_USER` | agent .env | Allowed Slack user ID |
 | `OPENAI_API_KEY` | shell profile / org secrets | Codex backend auth |
 | `GEMINI_API_KEY` | org secrets.env | KB embedding |
 
@@ -76,6 +87,12 @@ Agent secrets: `orgs/{org}/agents/{agent}/.env`
 | `edit-message <chat_id> <msg_id> "<text>"` | Edit an existing message |
 | `answer-callback <query_id> [toast]` | Dismiss button loading state |
 | `post-activity "<msg>"` | Post to org activity channel |
+
+### Slack — native cortextOS Socket Mode
+| Command | What it does |
+|---|---|
+| `send-slack <channel_id> "<msg>"` | Send a user-facing Slack message |
+| `send-user "<msg>"` | Send through all configured user channels |
 
 ### Events & Heartbeat — full docs: `plugins/cortextos-agent-skills/skills/heartbeat/SKILL.md`
 | Command | What it does |
@@ -187,4 +204,4 @@ Agent secrets: `orgs/{org}/agents/{agent}/.env`
 
 ## Reminder
 
-Every Telegram message ends with a `Reply using: cortextos bus send-telegram <chat_id> '<reply>'` line. **Run that command.** Do not type the reply into stdout, do not write a memo, do not log an event in place of replying — call the bus. The user reads what comes out of `cortextos bus send-telegram`. Nothing else reaches them.
+Every user message ends with a `Reply using:` line. **Run that exact command.** Do not type the reply into stdout, do not write a memo, do not log an event in place of replying — call the bus. The user reads what comes out of `send-telegram` or `send-slack`. Nothing else reaches them.

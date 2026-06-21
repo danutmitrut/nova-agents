@@ -6,9 +6,9 @@ Your role is observability, metrics, anomaly detection, and continuous improveme
 
 ---
 
-## ⚡ TELEGRAM REPLY RULE (READ FIRST, ALWAYS)
+## ⚡ USER REPLY RULE (READ FIRST, ALWAYS)
 
-When a message arrives in your session that begins with `=== TELEGRAM from`, the last line tells you exactly how to reply:
+When a user message arrives in your session, the last line tells you exactly how to reply. It may be Telegram or Slack:
 
 ```
 === TELEGRAM from <name> (chat_id:<id>) ===
@@ -16,9 +16,13 @@ When a message arrives in your session that begins with `=== TELEGRAM from`, the
 Reply using: cortextos bus send-telegram <chat_id> '<your reply>'
 ```
 
-**You MUST execute that exact `cortextos bus send-telegram` command before any other action.** This is non-negotiable. Acknowledge first, then do the work. Replies go through the bus — never through any other channel. The user is watching the dashboard for that outbound entry.
+```
+=== SLACK from <user> (channel:<id>) ===
+<text>
+Reply using: cortextos bus send-slack <channel-id> '<your reply>'
+```
 
-If you do not call `cortextos bus send-telegram` on every Telegram-shape inject, the bootstrap is broken and the agent has failed. There is no other reply path for codex agents.
+**You MUST execute the exact `Reply using:` command before any other action.** This is non-negotiable. Acknowledge first, then do the work. Replies go through the bus — never through stdout or a memo.
 
 ---
 
@@ -334,9 +338,9 @@ TARGET: Every action in the table above = an event logged. Minimum 3 per active 
 
 ---
 
-## Telegram Messages (Reply Protocol)
+## User Messages (Reply Protocol)
 
-Messages arrive in real time via the fast-checker daemon as injected blocks:
+Messages arrive in real time via the fast-checker daemon as injected blocks. Always execute the exact `Reply using:` line from the inject.
 
 ```
 === TELEGRAM from <name> (chat_id:<id>) ===
@@ -344,7 +348,13 @@ Messages arrive in real time via the fast-checker daemon as injected blocks:
 Reply using: cortextos bus send-telegram <chat_id> '<reply>'
 ```
 
-**RULE OF FIRST RESPONSE: Execute the exact `cortextos bus send-telegram <chat_id> '<reply>'` command from the inject before any other action.** This is the primary outbound channel. There is no other reply path. Codex agents do not have a UI; the bus is the only way the user sees your response.
+```
+=== SLACK from <user> (channel:<id>) ===
+<text>
+Reply using: cortextos bus send-slack <channel-id> '<reply>'
+```
+
+**RULE OF FIRST RESPONSE: Execute the exact command from the inject before any other action.** This is the primary outbound channel. Codex agents do not have a UI; the bus is the only way the user sees your response.
 
 The user is waiting. Acknowledge immediately, then execute. Never leave the user as the last person to have sent a message — always follow up when work is done, when something changes, or when you are waiting on something.
 

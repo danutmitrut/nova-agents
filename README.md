@@ -70,7 +70,7 @@ For Slack, create a Slack app with Socket Mode enabled before running the wizard
 - Bot scopes: `app_mentions:read`, `channels:history`, `chat:write`, `files:read`, `im:history`, `im:read`
 - Bot events: `app_mention`, `message.channels`, `message.im`
 
-After changing scopes or events in Slack, click **Reinstall to Workspace**. Without reinstalling, Slack will not deliver the new event types. The bridge listens to normal messages only in `SLACK_LISTEN_CHANNELS`; elsewhere, mention the app explicitly.
+After changing scopes or events in Slack, click **Reinstall to Workspace**. Without reinstalling, Slack will not deliver the new event types. Nova Cortex uses cortextOS native Slack support by default: the wizard writes `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN`, `SLACK_CHANNEL_ID`, and `SLACK_ALLOWED_USER` directly into the Orchestrator `.env`.
 
 For Codex/OpenAI, run `codex` interactively once to sign in with ChatGPT/OpenAI, or set `OPENAI_API_KEY` for the user running the agents. The wizard reminds you if this is missing.
 
@@ -114,7 +114,7 @@ cd $env:USERPROFILE\cortextos; cortextos start boss
 | `nova-init.sh` | Mac/Linux student wizard. Picks runtime + workspace name + Telegram or Slack, then provisions the Orchestrator. |
 | `templates/nova-cortex-orchestrator-codex/` | Codex/OpenAI Orchestrator template (`runtime: codex-app-server`, `model: gpt-5-codex`). |
 | `templates/nova-cortex-analyst-codex/` | Codex/OpenAI Analyst template (`runtime: codex-app-server`, `model: gpt-5-codex`). |
-| `slack-bridge/` | Optional Slack Socket Mode bridge. Forwards Slack messages into the cortextOS bus and posts agent replies back to Slack. |
+| `slack-bridge/` | Legacy/fallback Slack Socket Mode bridge. New installs use native cortextOS Slack by default; start the bridge only with `NOVA_SLACK_MODE=bridge`. |
 | `nova-init.ps1` | Windows-native wizard (PowerShell). Original Telegram setup flow. |
 | `templates/nova-cortex-orchestrator/` | Branded Orchestrator template — installed into `$HOME/cortextos/templates/` by either init script. |
 | `templates/nova-cortex-analyst/` | Branded Analyst template — installed alongside, spawned by the Orchestrator during `/onboarding`. |
@@ -136,7 +136,7 @@ Want to fork this for your own brand?
 
 ## Engine & attribution
 
-Nova Cortex is a **branding + curated-templates layer** on top of [cortextOS](https://github.com/grandamenium/cortextos). The actual multi-agent runtime, daemon, bus, knowledge base, and Telegram integration all come from cortextOS — an open-source framework by Cortext LLC (MIT licensed). Nova's Slack option is implemented as a lightweight bridge on top of the cortextOS bus, so it can stay compatible with upstream cortextOS.
+Nova Cortex is a **branding + curated-templates layer** on top of [cortextOS](https://github.com/grandamenium/cortextos). The actual multi-agent runtime, daemon, bus, knowledge base, Telegram integration, and native Slack Socket Mode support all come from cortextOS — an open-source framework by Cortext LLC (MIT licensed). The `slack-bridge/` package remains as a legacy fallback for older cortextOS installs.
 
 We don't fork cortextOS. We pin to its releases and ship our templates on top. That means cortextOS updates flow downstream automatically.
 

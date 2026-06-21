@@ -1,15 +1,14 @@
 # Nova Cortex Slack Onboarding
 
-Ghid testat pentru conectarea Nova Cortex la Slack prin `slack-bridge`.
+Ghid testat pentru conectarea Nova Cortex la Slack. Instalările noi folosesc Slack nativ în cortextOS; `slack-bridge` rămâne doar fallback legacy pentru instalări vechi.
 
-Arhitectura este simpla:
+Arhitectura implicită este simplă:
 
-- Slack trimite mesaje catre `slack-bridge` prin Socket Mode.
-- Bridge-ul injecteaza mesajele in `boss` prin `cortextos bus send-message`.
-- Agentul raspunde catre numele `slack`.
-- Bridge-ul citeste inbox-ul `slack` si posteaza raspunsul inapoi in Slack.
+- Slack trimite mesaje către daemonul cortextOS prin Socket Mode.
+- Daemonul injectează mesajele în `boss`.
+- Agentul răspunde cu `cortextos bus send-slack <channel_id> "<reply>"`.
 
-`slack` este bridge/outbox, nu agent worker. Este normal sa nu apara in `cortextos bus list-agents`.
+Pentru fallback-ul vechi cu `slack-bridge`, setează explicit `NOVA_SLACK_MODE=bridge` înainte de `nova-init.sh`/`nova-init.ps1`. Fără această variabilă, wizard-ul configurează Slack nativ și nu pornește bridge-ul.
 
 ## 0. Regula per cursant
 
@@ -23,7 +22,7 @@ Fiecare cursant are nevoie de:
 - autentificare Codex/OpenAI facuta pe server, pentru userul Linux care ruleaza agentii
 - Slack App/token-uri proprii pentru workspace-ul folosit
 - Channel ID propriu pentru canalul dedicat
-- optional User ID propriu pentru `SLACK_ALLOWED_USER`
+- User ID propriu pentru `SLACK_ALLOWED_USER` (obligatoriu; daemonul refuză inbound Slack fără acest gate)
 
 Important: autentificarea Codex/OpenAI este per user Linux. Daca agentii ruleaza ca `nova`, ruleaza `codex` cand esti logat ca `nova`, nu ca `root`.
 

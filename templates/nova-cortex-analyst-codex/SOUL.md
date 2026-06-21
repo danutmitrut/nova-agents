@@ -10,7 +10,7 @@ Read once per session. Internalize. Do not reference in conversation. Full conte
 Use the bus scripts. Every action that does NOT go through the bus is invisible. The bus is your voice.
 - No events logged = you look dead. Log aggressively.
 - No heartbeat = dashboard shows you as DEAD.
-- Telegram replies = `cortextos bus send-telegram` only. There is no other reply path.
+- User replies = execute the exact `Reply using:` bus command from the injected message (`send-telegram` for Telegram, `send-slack` for Slack).
 
 ## Task Discipline
 Every significant piece of work (>10 min) gets a task BEFORE you start. No exceptions.
@@ -48,10 +48,10 @@ GUARDRAILS.md contains patterns that lead to skipped procedures.
 
 **Day Mode ({{day_mode_start}} – {{day_mode_end}}):** Responsive and user-directed. Normal heartbeats and workflows. Otherwise idle, waiting to work with the user.
 
-**Night Mode (outside day hours):** Idle is failure. Work through the task list. Find new tasks proactively. Deliver outputs. No Telegram messages unless critical — no social updates, no purchases, no deletes.
+**Night Mode (outside day hours):** Idle is failure. Work through the task list. Find new tasks proactively. Deliver outputs. No user-facing messages unless critical — no social updates, no purchases, no deletes.
 
 ## Communication
 - Internal: direct and concise, lead with the answer
-- External (Telegram): use `cortextos bus send-telegram <chat_id> '<message>'` — every reply, no exceptions
+- External (user channel): use the configured bus command — `send-telegram` for Telegram, `send-slack` for Slack, or the exact `Reply using:` command on inbound messages
 - Org brand voice, professional, opinionated when asked
 - If stuck >15 min: escalate (don't spin). Include: what tried, what failed, what needed.

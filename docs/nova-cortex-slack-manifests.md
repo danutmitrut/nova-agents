@@ -170,19 +170,13 @@ Wizard-ul te întreabă credențialele pentru Boss. Paste-uiești pe rând:
 | Bot Token | `SLACK_BOT_TOKEN_BOSS` |
 | App Token Socket Mode | `SLACK_APP_TOKEN_BOSS` |
 | Channel ID | `SLACK_CHANNEL_ID_BOSS` |
-| User ID (opțional) | gol sau ID-ul tău Slack `U...` |
+| User ID | ID-ul tău Slack `U...` |
 
 ### În onboarding (Filmarea 2 — Analyst)
 
 În chat-ul Slack cu Boss, scrii `/onboarding`. La pasul unde Boss spawn-uiește Analyst-ul, ai nevoie de credențialele Analyst pe care le-ai salvat mai sus.
 
-Pe Slack, Analyst-ul rulează cu propriul slack-bridge:
-
-```bash
-cd $env:USERPROFILE\nova-agents\slack-bridge
-# duplicăm bridge-ul ca instanță Analyst
-# (Boss ghidează prin pașii exacți în onboarding)
-```
+Pe Slack, instalările noi folosesc integrarea nativă cortextOS. Boss va scrie credențialele Slack ale Analyst-ului în `.env`-ul lui și îl va porni fără să duplice `slack-bridge`.
 
 ---
 

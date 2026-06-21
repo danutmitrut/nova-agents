@@ -154,7 +154,9 @@ Trebuie sa vezi cel putin:
 cortextos-daemon
 ```
 
-Daca ai ales Slack, trebuie sa vezi si:
+Pentru instalările noi cu Slack nativ, nu trebuie să vezi un proces separat de bridge. Slack rulează în `cortextos-daemon`.
+
+Doar dacă ai setat explicit `NOVA_SLACK_MODE=bridge`, trebuie să vezi și:
 
 ```text
 nova-slack-bridge
@@ -229,7 +231,7 @@ Dupa orice schimbare la scopes sau events, apasa:
 Reinstall to Workspace
 ```
 
-Fara reinstall, Slack App poate arata corect in UI, dar nu trimite events catre bridge.
+Fara reinstall, Slack App poate arata corect in UI, dar nu trimite events catre cortextOS.
 
 Flow:
 
@@ -327,8 +329,9 @@ Pentru Slack:
 
 ```text
 cortextos-daemon online
-nova-slack-bridge online
 ```
+
+`nova-slack-bridge online` apare doar în modul legacy/fallback (`NOVA_SLACK_MODE=bridge`).
 
 Test final:
 

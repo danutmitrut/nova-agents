@@ -195,8 +195,11 @@ if ($NOVA_CONTROL_CHANNEL -eq 'telegram') {
   }
 
   Write-Host ""
-  Write-Host "  User ID al tău (U... — opțional, lasă gol ca să accepte orice utilizator)" -ForegroundColor Gray
+  Write-Host "  User ID al tău (U... — obligatoriu pentru securitate)" -ForegroundColor Gray
   $SLACK_ALLOWED_USER = Read-Host "  →"
+  if ($SLACK_ALLOWED_USER -notmatch '^U[A-Z0-9]+$') {
+    Nova-Fail "User ID invalid. Trebuie să înceapă cu U urmat de majuscule/cifre. Reia nova-init.ps1."
+  }
   Nova-Ok "Credențiale Slack capturate (se salvează local)."
 
 }
@@ -275,9 +278,7 @@ if (Test-Path $AGENT_ENV) {
     $envContent = & $upsert $envContent 'SLACK_BOT_TOKEN'    $SLACK_BOT_TOKEN
     $envContent = & $upsert $envContent 'SLACK_APP_TOKEN'    $SLACK_APP_TOKEN
     $envContent = & $upsert $envContent 'SLACK_CHANNEL_ID'   $SLACK_CHANNEL_ID
-    if ($SLACK_ALLOWED_USER) {
-      $envContent = & $upsert $envContent 'SLACK_ALLOWED_USER' $SLACK_ALLOWED_USER
-    }
+    $envContent = & $upsert $envContent 'SLACK_ALLOWED_USER' $SLACK_ALLOWED_USER
   }
 
   Set-Content -Path $AGENT_ENV -Value $envContent -Encoding UTF8 -NoNewline
@@ -318,9 +319,9 @@ try {
   Pop-Location
 }
 
-# ─── Pornește Slack bridge (dacă e ales) ─────────────────────────────
-if ($NOVA_CONTROL_CHANNEL -eq 'slack') {
-  Nova-Step "Pornesc Slack bridge"
+# ─── Slack bridge legacy/fallback ─────────────────────────────────────
+if ($NOVA_CONTROL_CHANNEL -eq 'slack' -and $env:NOVA_SLACK_MODE -eq 'bridge') {
+  Nova-Step "Pornesc Slack bridge legacy"
   $SLACK_BRIDGE_DIR = Join-Path $SCRIPT_DIR 'slack-bridge'
   if (-not (Test-Path $SLACK_BRIDGE_DIR)) {
     Nova-Warn "Directorul slack-bridge lipsește de la $SLACK_BRIDGE_DIR — bridge-ul nu va porni."
@@ -332,9 +333,13 @@ NOVA_BRIDGE_AGENT=slack
 CTX_ORG=$ORG
 SLACK_BOT_TOKEN=$SLACK_BOT_TOKEN
 SLACK_APP_TOKEN=$SLACK_APP_TOKEN
-SLACK_CHANNEL_ID=$SLACK_CHANNEL_ID
+SLACK_DEFAULT_CHANNEL=$SLACK_CHANNEL_ID
+SLACK_LISTEN_CHANNELS=$SLACK_CHANNEL_ID
+SLACK_BRIDGE_STATE=$CORTEXTOS_HOME\slack-bridge-state.json
+SLACK_MEDIA_DIR=$CORTEXTOS_HOME\orgs\$ORG\agents\boss\slack-media
+SLACK_MAX_FILE_BYTES=104857600
 "@
-    if ($SLACK_ALLOWED_USER) { $bridgeEnv += "`nSLACK_ALLOWED_USER=$SLACK_ALLOWED_USER" }
+    $bridgeEnv += "`nSLACK_ALLOWED_USER=$SLACK_ALLOWED_USER"
     Set-Content -Path (Join-Path $SLACK_BRIDGE_DIR '.env') -Value $bridgeEnv -Encoding UTF8
 
     Push-Location $SLACK_BRIDGE_DIR
@@ -352,6 +357,8 @@ SLACK_CHANNEL_ID=$SLACK_CHANNEL_ID
       Pop-Location
     }
   }
+} elseif ($NOVA_CONTROL_CHANNEL -eq 'slack') {
+  Nova-Ok "Slack nativ cortextOS activat — bridge-ul legacy nu este pornit"
 }
 
 # ─── Ecran final ─────────────────────────────────────────────────────────
@@ -373,7 +380,7 @@ if ($NOVA_CONTROL_CHANNEL -eq 'telegram') {
   Write-Host "     apoi îți va cere un AL DOILEA token BotFather ca să aducă Analystul online."
 } else {
   Write-Host "  1. Deschide Slack și găsește canalul configurat."
-  Write-Host "     Trimite orice mesaj (ex: `"salut`") ca să verifici că bridge-ul răspunde."
+  Write-Host "     Invită app-ul în canal, apoi trimite orice mesaj (ex: `"salut`") ca să verifici că Boss răspunde."
   Write-Host ""
   Write-Host "  2. Trimite Orchestratorului această comandă ca să termine setup-ul:"
   Write-Host "       /onboarding" -ForegroundColor Cyan
@@ -385,6 +392,11 @@ Write-Host "  3. După ce Analystul e online, Orchestratorul tău te poate ajuta
 Write-Host "     agenți specialiști (CFO, marketer, ops, research — tu alegi)."
 Write-Host ""
 Write-Host "  Pentru a reporni Orchestratorul oricând: cd $CORTEXTOS_HOME; cortextos start boss" -ForegroundColor DarkGray
+if ($NOVA_CONTROL_CHANNEL -eq 'slack' -and $env:NOVA_SLACK_MODE -eq 'bridge') {
+  Write-Host "  Pentru a reporni bridge-ul Slack legacy: pm2 restart nova-slack-bridge" -ForegroundColor DarkGray
+} elseif ($NOVA_CONTROL_CHANNEL -eq 'slack') {
+  Write-Host "  Slack rulează nativ prin cortextOS; pentru restart: cd $CORTEXTOS_HOME; cortextos restart boss" -ForegroundColor DarkGray
+}
 Write-Host ""
 Write-Host "  Workspace: $ORG  •  runtime: $NOVA_AGENT_RUNTIME  •  canal: $NOVA_CONTROL_CHANNEL" -ForegroundColor DarkGray
 Write-Host ""

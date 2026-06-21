@@ -202,7 +202,7 @@ else
   read -r -p "  → SLACK_BOT_TOKEN (xoxb-...): " SLACK_BOT_TOKEN
   read -r -p "  → SLACK_APP_TOKEN (xapp-...): " SLACK_APP_TOKEN
   read -r -p "  → SLACK_CHANNEL_ID canal dedicat (ex: C123ABC): " SLACK_CHANNEL_ID
-  read -r -p "  → SLACK_ALLOWED_USER ID (ex: U123..., Enter pentru orice user din workspace): " SLACK_ALLOWED_USER
+  read -r -p "  → SLACK_ALLOWED_USER ID-ul tău Slack (ex: U123...): " SLACK_ALLOWED_USER
 
   if [[ -z "$SLACK_BOT_TOKEN" || ! "$SLACK_BOT_TOKEN" =~ ^xoxb- ]]; then
     nova_fail "SLACK_BOT_TOKEN trebuie să înceapă cu xoxb-. Reia nova-init.sh."
@@ -213,9 +213,12 @@ else
   if [[ -z "$SLACK_CHANNEL_ID" || ! "$SLACK_CHANNEL_ID" =~ ^C[A-Z0-9]+$ ]]; then
     nova_fail "SLACK_CHANNEL_ID trebuie să înceapă cu C urmat de litere mari și cifre (ex: C123ABC). Reia nova-init.sh."
   fi
+  if [[ -z "$SLACK_ALLOWED_USER" || ! "$SLACK_ALLOWED_USER" =~ ^U[A-Z0-9]+$ ]]; then
+    nova_fail "SLACK_ALLOWED_USER trebuie să fie ID-ul tău Slack și să înceapă cu U (ex: U123ABC). Reia nova-init.sh."
+  fi
 
   nova_ok "Credențiale Slack capturate (se salvează local, nu se share-uiesc niciodată)."
-  nova_dim "Dacă scrii în alt canal, folosește @numele-app-ului; bridge-ul ascultă fără @ doar în canalul dedicat."
+  nova_dim "Dacă scrii în alt canal, folosește @numele-app-ului; canalul dedicat acceptă mesaje directe către Boss."
 fi
 
 # ─── Instalează template-urile Nova Cortex în directorul cortextOS ────────
@@ -291,7 +294,13 @@ if [[ -f "$AGENT_ENV" ]]; then
     upsert_env "CHAT_ID"      "$CHAT_ID"
     upsert_env "ALLOWED_USER" "$USER_ID"
   else
-    upsert_env "NOVA_SLACK_BRIDGE_AGENT" "slack"
+    # Native cortextOS Slack support. The daemon reads these values from the
+    # agent .env, starts the Socket Mode poller, and injects messages with
+    # `Reply using: cortextos bus send-slack ...`.
+    upsert_env "SLACK_BOT_TOKEN"    "$SLACK_BOT_TOKEN"
+    upsert_env "SLACK_APP_TOKEN"    "$SLACK_APP_TOKEN"
+    upsert_env "SLACK_CHANNEL_ID"   "$SLACK_CHANNEL_ID"
+    upsert_env "SLACK_ALLOWED_USER" "$SLACK_ALLOWED_USER"
   fi
   chmod 600 "$AGENT_ENV"
   nova_ok "Config canal salvată (local, citibilă doar de proprietar)"
@@ -314,9 +323,9 @@ else
 fi
 cd "$SCRIPT_DIR"
 
-# ─── Pornește Slack bridge (doar dacă canalul e Slack) ───────────────────
-if [[ "$NOVA_CONTROL_CHANNEL" == "slack" ]]; then
-  nova_step "Pornesc Slack bridge"
+# ─── Slack bridge legacy/fallback ────────────────────────────────────────
+if [[ "$NOVA_CONTROL_CHANNEL" == "slack" && "${NOVA_SLACK_MODE:-native}" == "bridge" ]]; then
+  nova_step "Pornesc Slack bridge legacy"
   SLACK_BRIDGE_DIR="$SCRIPT_DIR/slack-bridge"
   if [[ ! -d "$SLACK_BRIDGE_DIR" ]]; then
     nova_fail "Slack bridge lipsește de la $SLACK_BRIDGE_DIR — re-clonează repo-ul nova-agents."
@@ -347,6 +356,8 @@ EOF
   (cd "$SLACK_BRIDGE_DIR" && pm2 start npm --name nova-slack-bridge -- start >/dev/null)
   pm2 save >/dev/null 2>&1 || true
   nova_ok "Slack bridge online"
+elif [[ "$NOVA_CONTROL_CHANNEL" == "slack" ]]; then
+  nova_ok "Slack nativ cortextOS activat — bridge-ul legacy nu este pornit"
 fi
 
 # ─── Ecran final ─────────────────────────────────────────────────────────
@@ -379,8 +390,10 @@ echo "  3. După ce Analystul e online, Orchestratorul tău te poate ajuta să a
 echo "     agenți specialiști (CFO, marketer, ops, research — tu alegi)."
 echo ""
 echo -e "  ${DIM}Pentru a reporni Orchestratorul oricând: ${CYAN}cd ~/cortextos && cortextos start boss${RESET}"
-if [[ "$NOVA_CONTROL_CHANNEL" == "slack" ]]; then
+if [[ "$NOVA_CONTROL_CHANNEL" == "slack" && "${NOVA_SLACK_MODE:-native}" == "bridge" ]]; then
   echo -e "  ${DIM}Pentru a reporni bridge-ul Slack: ${CYAN}pm2 restart nova-slack-bridge${RESET}"
+elif [[ "$NOVA_CONTROL_CHANNEL" == "slack" ]]; then
+  echo -e "  ${DIM}Slack rulează nativ prin cortextOS; pentru restart: ${CYAN}cd ~/cortextos && cortextos restart boss${RESET}"
 fi
 echo ""
 echo -e "  ${DIM}Workspace: $ORG  •  runtime: $NOVA_AGENT_RUNTIME  •  canal: $NOVA_CONTROL_CHANNEL${RESET}"

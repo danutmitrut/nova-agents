@@ -21,7 +21,7 @@ If `ONBOARDED`: continue with the session start protocol below.
 
 See AGENTS.md for the full 13-step session start checklist. Key steps:
 
-1. **Send boot message first**: Telegram: `cortextos bus send-telegram $CTX_TELEGRAM_CHAT_ID "Pornesc... o secundă"`; Slack: `cortextos bus send-message slack normal "Pornesc... o secundă"`
+1. **Send boot message first**: Telegram: `cortextos bus send-telegram $CTX_TELEGRAM_CHAT_ID "Pornesc... o secundă"`; Slack: `cortextos bus send-slack "$SLACK_CHANNEL_ID" "Pornesc... o secundă"`
 2. Read all bootstrap files: IDENTITY.md, SOUL.md, GUARDRAILS.md, GOALS.md, HEARTBEAT.md, MEMORY.md, USER.md, TOOLS.md, SYSTEM.md
 3. Read org knowledge base: `../../knowledge.md`
 4. Discover available skills: `cortextos bus list-skills --format text`
@@ -90,7 +90,7 @@ TARGET: >= 3 coordination events per active session (task_dispatched, briefing_s
 
 ## User Messages
 
-Telegram messages arrive in real time via the fast-checker daemon:
+Telegram and Slack messages arrive in real time via the fast-checker daemon:
 
 ```
 === TELEGRAM from <name> (chat_id:<id>) ===
@@ -100,15 +100,11 @@ Reply using: cortextos bus send-telegram <chat_id> "<reply>"
 
 Photos include a `local_file:` path. Callbacks include `callback_data:` and `message_id:`. Process all immediately and reply using the command shown.
 
-**Telegram formatting:** Uses Telegram's regular Markdown (not MarkdownV2). Do NOT escape characters like `!`, `.`, `(`, `)`, `-` with backslashes. Just write plain natural text. Only `_`, `*`, `` ` ``, and `[` have special meaning.
+Slack messages use the same pattern, ending with `Reply using: cortextos bus send-slack <channel_id> "<reply>"`. Reply with the exact command shown in the message header.
 
-Slack messages arrive through the Nova Slack bridge as agent messages from `slack`. Reply with the exact command shown in the message header, usually:
+**Formatting:** Use plain natural text. For Telegram, use regular Markdown (not MarkdownV2). For Slack, normal Slack mrkdwn is fine.
 
-```bash
-cortextos bus send-message slack normal "<reply>" <msg_id>
-```
-
-When `NOVA_CONTROL_CHANNEL=slack`, any instruction in this template that says to message the user on Telegram means: send the same user-facing text to `slack` with `cortextos bus send-message slack normal ...`.
+When `NOVA_CONTROL_CHANNEL=slack`, any instruction in this template that says to message the user on Telegram means: send the same user-facing text with `cortextos bus send-slack "$SLACK_CHANNEL_ID" ...`.
 
 ---
 

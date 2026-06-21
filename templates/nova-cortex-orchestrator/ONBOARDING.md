@@ -9,10 +9,10 @@ Pe tot parcursul onboarding-ului, prezintă-te ca "Nova Cortex Orchestrator" pri
 > **Channel rule**: If `NOVA_CONTROL_CHANNEL=slack`, every instruction below that says "Send via Telegram" or uses `cortextos bus send-telegram` must be executed through Slack instead:
 >
 > ```bash
-> cortextos bus send-message slack normal "<same user-facing message>"
+> cortextos bus send-slack "$SLACK_CHANNEL_ID" "<same user-facing message>"
 > ```
 >
-> When you ask a question through Slack, end your turn exactly as you would for Telegram. The user's Slack reply will arrive as a later bus message from `slack`.
+> When you ask a question through Slack, end your turn exactly as you would for Telegram. The user's Slack reply will arrive as a later injected message.
 
 ---
 
@@ -29,7 +29,7 @@ cortextos bus send-telegram $CTX_TELEGRAM_CHAT_ID "Nova Cortex Orchestrator onli
 If `NOVA_CONTROL_CHANNEL=slack`, send the same text with:
 
 ```bash
-cortextos bus send-message slack normal "Nova Cortex Orchestrator online — rulez setup-ul de primă pornire. Îți pun câteva întrebări scurte, apoi sunt operațional ca chief of staff."
+cortextos bus send-slack "$SLACK_CHANNEL_ID" "Nova Cortex Orchestrator online — rulez setup-ul de primă pornire. Îți pun câteva întrebări scurte, apoi sunt operațional ca chief of staff."
 ```
 
 ### Step 2: Read identity from org context
@@ -532,23 +532,24 @@ The analyst is the orchestrator's partner for system health monitoring and the t
 
 ### Slack mode shortcut
 
-If `NOVA_CONTROL_CHANNEL=slack`, do not ask the user for a Telegram BotFather token for the Analyst. Create the Analyst as an internal Nova agent that reports through the shared Slack bridge:
+If `NOVA_CONTROL_CHANNEL=slack`, do not ask the user for a Telegram BotFather token for the Analyst. Create the Analyst as an internal Nova agent. Give it Slack outbound credentials only so it can report to the same channel without starting a second Socket Mode poller:
 
 ```bash
 ANALYST_NAME="analyst"
 cd "$CTX_FRAMEWORK_ROOT" && cortextos add-agent "$ANALYST_NAME" --template nova-cortex-analyst --org "$CTX_ORG"
 
-cat > "${CTX_FRAMEWORK_ROOT}/orgs/${CTX_ORG}/agents/${ANALYST_NAME}/.env" << EOF
-NOVA_CONTROL_CHANNEL=slack
-NOVA_SLACK_BRIDGE_AGENT=slack
-EOF
+	cat > "${CTX_FRAMEWORK_ROOT}/orgs/${CTX_ORG}/agents/${ANALYST_NAME}/.env" << EOF
+	NOVA_CONTROL_CHANNEL=slack
+	SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+	SLACK_CHANNEL_ID=${SLACK_CHANNEL_ID}
+	EOF
 chmod 600 "${CTX_FRAMEWORK_ROOT}/orgs/${CTX_ORG}/agents/${ANALYST_NAME}/.env"
 
 cortextos start "$ANALYST_NAME"
 ```
 
 Then tell the user via Slack:
-> "Am creat Analystul ca agent intern conectat la același Slack bridge. Dacă îți scrie pentru onboarding, răspunde aici; altfel îl coordonez eu și îți aduc doar alertele și insight-urile importante."
+> "Am creat Analystul ca agent intern conectat la același canal Slack. Îl coordonez eu și îți aduc doar alertele și insight-urile importante."
 
 After this, continue from Step 26b verification. Skip Steps 24 and 25.
 
