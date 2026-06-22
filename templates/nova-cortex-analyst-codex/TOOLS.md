@@ -114,6 +114,26 @@ Agent secrets: `orgs/{org}/agents/{agent}/.env`
 | `auto-commit [--dry-run]` | Daily workspace snapshot (local only) |
 | `check-upstream [--apply]` | Check for framework updates |
 
+### Nova Runtime Fallback
+Use these only when diagnosing runtime/channel problems or when the user explicitly asks for Claude/Codex fallback.
+
+```bash
+NOVA_AGENTS_REPO="${NOVA_AGENTS_REPO:-$HOME/nova-agents}"
+bash "$NOVA_AGENTS_REPO/scripts/nova-doctor.sh" --org "$CTX_ORG" --agent "$CTX_AGENT_NAME"
+```
+
+The analyst may diagnose itself or another agent. It should not switch the orchestrator unless the user or orchestrator explicitly requested it.
+
+```bash
+bash "$NOVA_AGENTS_REPO/scripts/nova-runtime-switch.sh" --org "$CTX_ORG" --agent "$CTX_AGENT_NAME" --to claude --dry-run
+```
+
+For self-fallback, use detached mode only after telling the user/orchestrator the agent will restart fresh:
+
+```bash
+bash "$NOVA_AGENTS_REPO/scripts/nova-runtime-switch.sh" --org "$CTX_ORG" --agent "$CTX_AGENT_NAME" --to claude --yes --detach
+```
+
 ### Goals
 | Command | What it does |
 |---|---|

@@ -26,7 +26,9 @@ Pentru curs, instalarea are trei decizii:
 2. **Locatie:** local pentru test/dezvoltare sau server pentru agenti always-on.
 3. **Canal:** Telegram sau Slack.
 
-Ghidul complet este in [`docs/installation-options.md`](docs/installation-options.md). Pentru Slack, foloseste si [`docs/slack-onboarding.md`](docs/slack-onboarding.md). Pentru validarea pe Windows, foloseste [`docs/windows-test-plan.md`](docs/windows-test-plan.md).
+Ghidul complet este in [`docs/installation-options.md`](docs/installation-options.md). Pentru Slack, foloseste si [`docs/slack-onboarding.md`](docs/slack-onboarding.md). Pentru fallback intre Claude si Codex dupa instalare, vezi [`docs/runtime-fallback.md`](docs/runtime-fallback.md); pentru varianta explicata pentru cursanti, vezi [`docs/ghid-curs-fallback-claude-codex.md`](docs/ghid-curs-fallback-claude-codex.md). Pentru validarea pe Windows, foloseste [`docs/windows-test-plan.md`](docs/windows-test-plan.md).
+
+Pentru mentenanta repo-ului si debug pe instalari, vezi [`WORKFLOW.md`](WORKFLOW.md). Acolo este notata copia canonica de lucru si checklistul minim inainte de commit/push.
 
 ### 1. Install
 
@@ -112,6 +114,8 @@ cd $env:USERPROFILE\cortextos; cortextos start boss
 | `nova-prereq.sh` | Mac/Linux prereq checker — auto-installs Homebrew (Mac), jq, Node 20+, Claude Code, cortextOS, PM2. Idempotent. |
 | `nova-prereq.ps1` | Windows-native equivalent (PowerShell 5.1+). Installs Node via `winget`, Claude Code + cortextOS + PM2 via npm. Idempotent. |
 | `nova-init.sh` | Mac/Linux student wizard. Picks runtime + workspace name + Telegram or Slack, then provisions the Orchestrator. |
+| `scripts/nova-doctor.sh` | Diagnoses installed orgs/agents: runtime, channel, credentials presence, and cortextOS status. |
+| `scripts/nova-runtime-switch.sh` | Safely switches an existing agent between Claude and Codex with backup, template overlay, and fresh restart. |
 | `templates/nova-cortex-orchestrator-codex/` | Codex/OpenAI Orchestrator template (`runtime: codex-app-server`, `model: gpt-5-codex`). |
 | `templates/nova-cortex-analyst-codex/` | Codex/OpenAI Analyst template (`runtime: codex-app-server`, `model: gpt-5-codex`). |
 | `slack-bridge/` | Legacy/fallback Slack Socket Mode bridge. New installs use native cortextOS Slack by default; start the bridge only with `NOVA_SLACK_MODE=bridge`. |
