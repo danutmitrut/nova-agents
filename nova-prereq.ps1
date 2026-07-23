@@ -371,12 +371,18 @@ if (Get-Command cortextos -ErrorAction SilentlyContinue) {
   # Descarcam intai la disk, apoi rulam `node fisier.mjs` ca sa primim parsing ESM corect.
   $installerUrl = 'https://raw.githubusercontent.com/danutmitrut/cortextos/main/install.mjs'
   $installerTmp = Join-Path $env:TEMP "cortextos-install-$([guid]::NewGuid()).mjs"
+  # CORTEXTOS_REPO fixeaza sursa pe fork-ul danutmitrut/cortextos: un snapshot
+  # controlat, sincronizat periodic din upstream dupa verificare. Toti cursantii
+  # primesc astfel aceeasi versiune testata, nu upstream-latest nefiltrat.
+  # install.mjs suporta nativ variabila asta ca override de sursa.
+  $env:CORTEXTOS_REPO = 'https://github.com/danutmitrut/cortextos.git'
   try {
     Invoke-WebRequest -Uri $installerUrl -OutFile $installerTmp -UseBasicParsing -ErrorAction Stop
     node $installerTmp
     if ($LASTEXITCODE -ne 0) { Nova-Fail "Instalarea cortextOS a esuat (exit $LASTEXITCODE)" }
   } finally {
     Remove-Item -Path $installerTmp -ErrorAction SilentlyContinue
+    Remove-Item -Path Env:CORTEXTOS_REPO -ErrorAction SilentlyContinue
   }
 
   # Refresh PATH si verifica

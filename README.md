@@ -26,7 +26,7 @@ Pentru curs, instalarea are trei decizii:
 2. **Locatie:** local pentru test/dezvoltare sau server pentru agenti always-on.
 3. **Canal:** Telegram sau Slack.
 
-Ghidul complet este in [`docs/installation-options.md`](docs/installation-options.md). Pentru Slack, foloseste si [`docs/slack-onboarding.md`](docs/slack-onboarding.md). Pentru fallback intre Claude si Codex dupa instalare, vezi [`docs/runtime-fallback.md`](docs/runtime-fallback.md); pentru varianta explicata pentru cursanti, vezi [`docs/ghid-curs-fallback-claude-codex.md`](docs/ghid-curs-fallback-claude-codex.md). Pentru validarea pe Windows, foloseste [`docs/windows-test-plan.md`](docs/windows-test-plan.md).
+Ghidul complet este in [`docs/installation-options.md`](docs/installation-options.md). Pentru Slack, foloseste si [`docs/slack-onboarding.md`](docs/slack-onboarding.md). Pentru fallback intre Claude si Codex dupa instalare, vezi [`docs/runtime-fallback.md`](docs/runtime-fallback.md); pentru varianta explicata pentru cursanti, vezi [`docs/ghid-curs-fallback-claude-codex.md`](docs/ghid-curs-fallback-claude-codex.md). Pentru validarea pe Windows, foloseste [`docs/windows-test-plan.md`](docs/windows-test-plan.md). Pentru modelul de permisiuni al agentilor si aprobari pe Telegram, vezi [`docs/permisiuni-agenti.md`](docs/permisiuni-agenti.md).
 
 Pentru mentenanta repo-ului si debug pe instalari, vezi [`WORKFLOW.md`](WORKFLOW.md). Acolo este notata copia canonica de lucru si checklistul minim inainte de commit/push.
 
