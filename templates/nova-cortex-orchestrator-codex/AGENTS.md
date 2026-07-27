@@ -19,7 +19,7 @@ Reply using: cortextos bus send-telegram <chat_id> '<your reply>'
 ```
 === SLACK from <user> (channel:<id>) ===
 <text>
-Reply using: cortextos bus send-slack <channel-id> '<your reply>'
+Reply using: cortextos bus send-message slack normal '<your reply>'
 ```
 
 **You MUST execute the exact `Reply using:` command before any other action.** This is non-negotiable. Acknowledge first, then do the work. Replies go through the bus — never through stdout or a memo. The user is watching the selected channel for that outbound message.
@@ -46,7 +46,7 @@ Complete the following in order. Do not skip steps.
 1. **Send boot message first** — before reading anything else. SKIP this step if your startup prompt says `CONTEXT HANDOFF` (that is a handoff restart, not a cold boot). Use the configured channel:
    ```bash
    if [ "$NOVA_CONTROL_CHANNEL" = "slack" ]; then
-     cortextos bus send-slack "$SLACK_CHANNEL_ID" 'Booting up... one moment'
+     cortextos bus send-message slack normal 'Booting up... one moment'
    else
      cortextos bus send-telegram "$CTX_TELEGRAM_CHAT_ID" 'Booting up... one moment'
    fi
@@ -68,7 +68,7 @@ Complete the following in order. Do not skip steps.
 11. Update heartbeat: `cortextos bus update-heartbeat "online"`
 12. Log session start: `cortextos bus log-event action session_start info --meta '{"agent":"'$CTX_AGENT_NAME'"}'`
 13. Write session start entry to daily memory (see Memory Protocol below)
-14. Send your online status through the configured channel (`send-telegram` for Telegram, `send-slack "$SLACK_CHANNEL_ID"` for Slack). On a cold boot: tell them what crons are scheduled (from `cortextos bus list-crons $CTX_AGENT_NAME`), pending messages, and what you are picking up from last session. On a `CONTEXT HANDOFF` restart: send ONE brief conversational message that picks up naturally (e.g. "back — [what you were working on]"). No cron IDs, no status report.
+14. Send your online status through the configured channel (`send-telegram` for Telegram, `send-message slack normal` for Slack). On a cold boot: tell them what crons are scheduled (from `cortextos bus list-crons $CTX_AGENT_NAME`), pending messages, and what you are picking up from last session. On a `CONTEXT HANDOFF` restart: send ONE brief conversational message that picks up naturally (e.g. "back — [what you were working on]"). No cron IDs, no status report.
 
 ---
 
@@ -95,7 +95,7 @@ Run these steps before any restart (hard or soft) and on context exhaustion.
 4. **Hard restart only** — notify user on the configured channel:
    ```bash
    if [ "$NOVA_CONTROL_CHANNEL" = "slack" ]; then
-     cortextos bus send-slack "$SLACK_CHANNEL_ID" 'Restarting now — will be back in a moment.'
+     cortextos bus send-message slack normal 'Restarting now — will be back in a moment.'
    else
      cortextos bus send-telegram "$CTX_TELEGRAM_CHAT_ID" 'Restarting now — will be back in a moment.'
    fi
@@ -103,7 +103,7 @@ Run these steps before any restart (hard or soft) and on context exhaustion.
 5. **Context exhaustion only** — notify first, then hard-restart:
    ```bash
    if [ "$NOVA_CONTROL_CHANNEL" = "slack" ]; then
-     cortextos bus send-slack "$SLACK_CHANNEL_ID" 'Context window full. Hard-restarting with fresh session. Resuming from memory.'
+     cortextos bus send-message slack normal 'Context window full. Hard-restarting with fresh session. Resuming from memory.'
    else
      cortextos bus send-telegram "$CTX_TELEGRAM_CHAT_ID" 'Context window full. Hard-restarting with fresh session. Resuming from memory.'
    fi
@@ -246,7 +246,7 @@ Before ANY external action (email, deploy, post, delete data, financial, merge t
 ```bash
 APPR_ID=$(cortextos bus create-approval "<what you want to do>" "<category>" "<context and draft>")
 if [ "$NOVA_CONTROL_CHANNEL" = "slack" ]; then
-  cortextos bus send-slack "$SLACK_CHANNEL_ID" 'Approval needed: <title> — check dashboard'
+  cortextos bus send-message slack normal 'Approval needed: <title> — check dashboard'
 else
   cortextos bus send-telegram "$CTX_TELEGRAM_CHAT_ID" 'Approval needed: <title> — check dashboard'
 fi
@@ -367,7 +367,7 @@ Reply using: cortextos bus send-telegram <chat_id> '<reply>'
 ```
 === SLACK from <user> (channel:<id>) ===
 <text>
-Reply using: cortextos bus send-slack <channel-id> '<reply>'
+Reply using: cortextos bus send-message slack normal '<reply>'
 ```
 
 **RULE OF FIRST RESPONSE: Execute the exact command from the inject before any other action.** This is the primary outbound channel. There is no other reply path. Codex agents do not have a UI; the bus is the only way the user sees your response.

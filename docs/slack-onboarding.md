@@ -1,14 +1,14 @@
 # Nova Cortex Slack Onboarding
 
-Ghid testat pentru conectarea Nova Cortex la Slack. Instalările noi folosesc Slack nativ în cortextOS; `slack-bridge` rămâne doar fallback legacy pentru instalări vechi.
+Ghid testat pentru conectarea Nova Cortex la Slack. Instalările Nova Cortex folosesc `slack-bridge`, integrarea Socket Mode administrată de Nova Cortex.
 
 Arhitectura implicită este simplă:
 
-- Slack trimite mesaje către daemonul cortextOS prin Socket Mode.
-- Daemonul injectează mesajele în `boss`.
-- Agentul răspunde cu `cortextos bus send-slack <channel_id> "<reply>"`.
+- Slack trimite mesajele prin Socket Mode către bridge-ul Nova Cortex.
+- Bridge-ul le livrează către `boss` prin bus-ul cortextOS.
+- Bridge-ul publică răspunsul agentului înapoi în conversația Slack.
 
-Pentru fallback-ul vechi cu `slack-bridge`, setează explicit `NOVA_SLACK_MODE=bridge` înainte de `nova-init.sh`/`nova-init.ps1`. Fără această variabilă, wizard-ul configurează Slack nativ și nu pornește bridge-ul.
+Wizard-urile `nova-init.sh` și `nova-init.ps1` pornesc bridge-ul automat pentru Slack.
 
 ## 0. Regula per cursant
 
@@ -22,7 +22,7 @@ Fiecare cursant are nevoie de:
 - autentificare Codex/OpenAI facuta pe server, pentru userul Linux care ruleaza agentii
 - Slack App/token-uri proprii pentru workspace-ul folosit
 - Channel ID propriu pentru canalul dedicat
-- User ID propriu pentru `SLACK_ALLOWED_USER` (obligatoriu; daemonul refuză inbound Slack fără acest gate)
+- unul sau mai multe User ID-uri pentru `SLACK_ALLOWED_USER`, separate prin virgulă (obligatoriu; doar aceste persoane pot comanda agentul)
 
 Important: autentificarea Codex/OpenAI este per user Linux. Daca agentii ruleaza ca `nova`, ruleaza `codex` cand esti logat ca `nova`, nu ca `root`.
 
@@ -166,13 +166,13 @@ Profilul tau Slack:
 
 Arata ca `U0B3R6QL745`.
 
-Acesta este optional:
+Este obligatoriu și poate conține mai mulți utilizatori:
 
 ```bash
-SLACK_ALLOWED_USER=U...
+SLACK_ALLOWED_USER=U0B3R6QL745,U0ANOTHERID
 ```
 
-Daca il setezi, doar acel user poate vorbi cu agentul.
+Fiecare persoană autorizată își copiază Member ID-ul din profilul Slack. Ownerul îl adaugă în listă, separat prin virgulă. Allowlist-ul controlează accesul; nu creează contexte separate de lucru pentru fiecare persoană.
 
 ## 7. `.env` pe server
 

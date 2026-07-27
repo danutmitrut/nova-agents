@@ -1,6 +1,6 @@
 # Nova Cortex Slack Bridge
 
-Optional Slack control channel for Nova Cortex.
+Slack control channel for Nova Cortex.
 
 The bridge uses Slack Socket Mode and the existing cortextOS file bus:
 
@@ -54,10 +54,17 @@ CTX_PROJECT_ROOT=$HOME/cortextos
 CTX_INSTANCE_ID=default
 ```
 
-Optional:
+Required access control:
 
 ```bash
-SLACK_ALLOWED_USER=U123456789
+SLACK_ALLOWED_USER=U123456789,U987654321
+```
+
+Only the listed Slack members can send commands. Each authorized person copies their Member ID from their Slack profile; the owner adds it to this comma-separated list. This is an access allowlist, not separate agent memory for each person.
+
+Optional routing and storage:
+
+```bash
 SLACK_DEFAULT_CHANNEL=C123456789
 SLACK_LISTEN_CHANNELS=C123456789
 SLACK_BRIDGE_STATE=$HOME/cortextos/slack-bridge-state.json

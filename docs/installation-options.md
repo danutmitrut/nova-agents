@@ -154,9 +154,7 @@ Trebuie sa vezi cel putin:
 cortextos-daemon
 ```
 
-Pentru instalările noi cu Slack nativ, nu trebuie să vezi un proces separat de bridge. Slack rulează în `cortextos-daemon`.
-
-Doar dacă ai setat explicit `NOVA_SLACK_MODE=bridge`, trebuie să vezi și:
+Pentru instalările Slack Nova Cortex trebuie să vezi și:
 
 ```text
 nova-slack-bridge
@@ -204,7 +202,7 @@ Ai nevoie de:
 - Bot token `xoxb-...`
 - App-level token `xapp-...` cu `connections:write`
 - Channel ID pentru canal dedicat, de forma `C...`
-- optional User ID, de forma `U...`
+- Unul sau mai multe User ID-uri Slack, de forma `U...` sau `W...`, separate prin virgulă (obligatoriu; doar acestea pot trimite comenzi agentului)
 
 Bot Token Scopes:
 
@@ -329,9 +327,8 @@ Pentru Slack:
 
 ```text
 cortextos-daemon online
+nova-slack-bridge online
 ```
-
-`nova-slack-bridge online` apare doar în modul legacy/fallback (`NOVA_SLACK_MODE=bridge`).
 
 Test final:
 

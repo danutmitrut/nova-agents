@@ -52,20 +52,14 @@ Daca wizardul scrie corect credentialele Slack dar agentul tot nu porneste, veri
 
 Instalarile noi Nova pot folosi Telegram sau Slack.
 
-Slack native este modul implicit pentru Slack. Bridge-ul Slack este fallback legacy si se porneste doar cu:
-
-```bash
-NOVA_SLACK_MODE=bridge
-```
-
-Pentru Slack native, `.env` trebuie sa contina:
+Bridge-ul Slack Nova Cortex este modul implicit pentru Slack. `.env` trebuie sa contina:
 
 ```text
 NOVA_CONTROL_CHANNEL=slack
 SLACK_BOT_TOKEN=...
 SLACK_APP_TOKEN=...
 SLACK_CHANNEL_ID=...
-SLACK_ALLOWED_USER=...
+SLACK_ALLOWED_USER=U...,U...
 ```
 
 Pentru Telegram, `.env` trebuie sa contina:

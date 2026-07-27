@@ -4,6 +4,7 @@ const { execFile } = require('child_process');
 const { existsSync, readFileSync, writeFileSync, mkdirSync } = require('fs');
 const { dirname, join, relative } = require('path');
 const os = require('os');
+const { parseSlackAllowedUserIds } = require('./allowlist');
 
 function loadDotEnv(filePath) {
   if (!existsSync(filePath)) return;
@@ -24,7 +25,7 @@ function loadDotEnv(filePath) {
 
 loadDotEnv(join(process.cwd(), '.env'));
 
-const required = ['SLACK_BOT_TOKEN', 'SLACK_APP_TOKEN', 'CTX_ORG'];
+const required = ['SLACK_BOT_TOKEN', 'SLACK_APP_TOKEN', 'CTX_ORG', 'SLACK_ALLOWED_USER'];
 for (const key of required) {
   if (!process.env[key]) {
     console.error(`[nova-slack-bridge] Missing required env var: ${key}`);
@@ -34,7 +35,13 @@ for (const key of required) {
 
 const targetAgent = process.env.NOVA_TARGET_AGENT || 'boss';
 const bridgeAgent = process.env.NOVA_BRIDGE_AGENT || 'slack';
-const allowedUser = process.env.SLACK_ALLOWED_USER || '';
+let slackAllowedUserIds;
+try {
+  slackAllowedUserIds = parseSlackAllowedUserIds(process.env.SLACK_ALLOWED_USER);
+} catch (err) {
+  console.error(`[nova-slack-bridge] Invalid SLACK_ALLOWED_USER: ${err.message}`);
+  process.exit(1);
+}
 const defaultChannel = process.env.SLACK_DEFAULT_CHANNEL || '';
 const listenChannels = new Set(
   String(process.env.SLACK_LISTEN_CHANNELS || defaultChannel || '')
@@ -250,8 +257,8 @@ const app = new App({
 
 app.event('app_mention', async ({ event, say }) => {
   console.log(`[nova-slack-bridge] app_mention user=${event.user} channel=${event.channel} ts=${event.ts} files=${event.files?.length || 0}`);
-  if (allowedUser && event.user !== allowedUser) {
-    console.log(`[nova-slack-bridge] ignored app_mention from user=${event.user}; expected ${allowedUser}`);
+  if (!event.user || !slackAllowedUserIds.includes(event.user)) {
+    console.log(`[nova-slack-bridge] ignored app_mention from unauthorized user=${event.user || 'unknown'}`);
     return;
   }
   try {
@@ -278,8 +285,8 @@ app.message(async ({ message, say }) => {
     console.log(`[nova-slack-bridge] ignored subtype=${message.subtype}`);
     return;
   }
-  if (allowedUser && message.user !== allowedUser) {
-    console.log(`[nova-slack-bridge] ignored message from user=${message.user}; expected ${allowedUser}`);
+  if (!message.user || !slackAllowedUserIds.includes(message.user)) {
+    console.log(`[nova-slack-bridge] ignored message from unauthorized user=${message.user || 'unknown'}`);
     return;
   }
   if (message.channel_type !== 'im' && !listenChannels.has(message.channel)) {

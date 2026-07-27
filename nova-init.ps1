@@ -171,7 +171,9 @@ if ($NOVA_CONTROL_CHANNEL -eq 'telegram') {
 } else {
 
   Write-Host "Pasul 4 din 4: Tokenele Slack pentru Nova Cortex" -ForegroundColor White
-  Nova-Dim "Ai nevoie de un Slack App cu Socket Mode activat și scopurile: chat:write, channels:read, connections:write."
+  Nova-Dim "Ai nevoie de un Slack App creat la api.slack.com/apps cu Socket Mode activat."
+  Nova-Dim "Bot Token Scopes: app_mentions:read, channels:history, chat:write, files:read, im:history, im:read"
+  Nova-Dim "App-Level Token: creează-l separat, cu scope connections:write (așa obții xapp-...)."
   Write-Host ""
 
   Write-Host "  Bot Token (xoxb-...)" -ForegroundColor Gray
@@ -195,10 +197,11 @@ if ($NOVA_CONTROL_CHANNEL -eq 'telegram') {
   }
 
   Write-Host ""
-  Write-Host "  User ID al tău (U... — obligatoriu pentru securitate)" -ForegroundColor Gray
+  Write-Host "  User ID-uri Slack autorizate (U.../W..., separate prin virgulă)" -ForegroundColor Gray
   $SLACK_ALLOWED_USER = Read-Host "  →"
-  if ($SLACK_ALLOWED_USER -notmatch '^U[A-Z0-9]+$') {
-    Nova-Fail "User ID invalid. Trebuie să înceapă cu U urmat de majuscule/cifre. Reia nova-init.ps1."
+  $SLACK_ALLOWED_USER = $SLACK_ALLOWED_USER -replace '\s', ''
+  if ($SLACK_ALLOWED_USER -notmatch '^[UW][A-Z0-9]+(,[UW][A-Z0-9]+)*$') {
+    Nova-Fail "User ID invalid. Introdu unul sau mai multe ID-uri Slack U.../W..., separate prin virgulă (ex: U123ABC,U456DEF). Reia nova-init.ps1."
   }
   Nova-Ok "Credențiale Slack capturate (se salvează local)."
 
@@ -319,9 +322,9 @@ try {
   Pop-Location
 }
 
-# ─── Slack bridge legacy/fallback ─────────────────────────────────────
-if ($NOVA_CONTROL_CHANNEL -eq 'slack' -and $env:NOVA_SLACK_MODE -eq 'bridge') {
-  Nova-Step "Pornesc Slack bridge legacy"
+# ─── Integrarea Slack Nova Cortex ──────────────────────────────────────
+if ($NOVA_CONTROL_CHANNEL -eq 'slack') {
+  Nova-Step "Pornesc integrarea Slack Nova Cortex"
   $SLACK_BRIDGE_DIR = Join-Path $SCRIPT_DIR 'slack-bridge'
   if (-not (Test-Path $SLACK_BRIDGE_DIR)) {
     Nova-Warn "Directorul slack-bridge lipsește de la $SLACK_BRIDGE_DIR — bridge-ul nu va porni."
@@ -349,7 +352,7 @@ SLACK_MAX_FILE_BYTES=104857600
       pm2 delete nova-slack-bridge 2>$null | Out-Null
       pm2 start npm --name nova-slack-bridge -- start *> $null
       if ($LASTEXITCODE -eq 0) {
-        Nova-Ok "Slack bridge pornit (PM2: nova-slack-bridge)"
+        Nova-Ok "Integrarea Slack este online (PM2: nova-slack-bridge)"
       } else {
         Nova-Warn "PM2 start a eșuat pentru Slack bridge. Pornește manual: cd $SLACK_BRIDGE_DIR; pm2 start npm --name nova-slack-bridge -- start"
       }
@@ -357,8 +360,6 @@ SLACK_MAX_FILE_BYTES=104857600
       Pop-Location
     }
   }
-} elseif ($NOVA_CONTROL_CHANNEL -eq 'slack') {
-  Nova-Ok "Slack nativ cortextOS activat — bridge-ul legacy nu este pornit"
 }
 
 # ─── Ecran final ─────────────────────────────────────────────────────────
@@ -392,10 +393,8 @@ Write-Host "  3. După ce Analystul e online, Orchestratorul tău te poate ajuta
 Write-Host "     agenți specialiști (CFO, marketer, ops, research — tu alegi)."
 Write-Host ""
 Write-Host "  Pentru a reporni Orchestratorul oricând: cd $CORTEXTOS_HOME; cortextos start boss" -ForegroundColor DarkGray
-if ($NOVA_CONTROL_CHANNEL -eq 'slack' -and $env:NOVA_SLACK_MODE -eq 'bridge') {
-  Write-Host "  Pentru a reporni bridge-ul Slack legacy: pm2 restart nova-slack-bridge" -ForegroundColor DarkGray
-} elseif ($NOVA_CONTROL_CHANNEL -eq 'slack') {
-  Write-Host "  Slack rulează nativ prin cortextOS; pentru restart: cd $CORTEXTOS_HOME; cortextos restart boss" -ForegroundColor DarkGray
+if ($NOVA_CONTROL_CHANNEL -eq 'slack') {
+  Write-Host "  Pentru a reporni integrarea Slack: pm2 restart nova-slack-bridge" -ForegroundColor DarkGray
 }
 Write-Host ""
 Write-Host "  Workspace: $ORG  •  runtime: $NOVA_AGENT_RUNTIME  •  canal: $NOVA_CONTROL_CHANNEL" -ForegroundColor DarkGray

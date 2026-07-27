@@ -13,7 +13,7 @@ Reply using: cortextos bus send-telegram <chat_id> '<your reply>'
 ```
 
 ```
-Reply using: cortextos bus send-slack <channel-id> '<your reply>'
+Reply using: cortextos bus send-message slack normal '<your reply>'
 ```
 
 **Run that exact command.** This is the only way a codex agent reaches the user. There is no IDE chat panel, no stdout reply path — every user-facing reply goes through the bus. Do this BEFORE any other action.
@@ -23,7 +23,7 @@ Reply using: cortextos bus send-slack <channel-id> '<your reply>'
 cortextos bus send-telegram $CTX_TELEGRAM_CHAT_ID 'message text'
 
 # Reply to Slack user/channel
-cortextos bus send-slack "$SLACK_CHANNEL_ID" 'message text'
+cortextos bus send-message slack normal 'message text'
 
 # Reply with a photo
 cortextos bus send-telegram $CTX_TELEGRAM_CHAT_ID 'caption' --image /path/to/file.png
@@ -91,7 +91,7 @@ Agent secrets: `orgs/{org}/agents/{agent}/.env`
 ### Slack — native cortextOS Socket Mode
 | Command | What it does |
 |---|---|
-| `send-slack <channel_id> "<msg>"` | Send a user-facing Slack message |
+| `send-message slack normal <channel_id> "<msg>"` | Send a user-facing Slack message |
 | `send-user "<msg>"` | Send through all configured user channels |
 
 ### Events & Heartbeat — full docs: `plugins/cortextos-agent-skills/skills/heartbeat/SKILL.md`
@@ -225,4 +225,4 @@ bash "$NOVA_AGENTS_REPO/scripts/nova-runtime-switch.sh" --org "$CTX_ORG" --agent
 
 ## Reminder
 
-Every user message ends with a `Reply using:` line. **Run that exact command.** Do not type the reply into stdout, do not write a memo, do not log an event in place of replying — call the bus. The user reads what comes out of `send-telegram` or `send-slack`. Nothing else reaches them.
+Every user message ends with a `Reply using:` line. **Run that exact command.** Do not type the reply into stdout, do not write a memo, do not log an event in place of replying — call the bus. The user reads what comes out of `send-telegram` or `send-message slack normal`. Nothing else reaches them.

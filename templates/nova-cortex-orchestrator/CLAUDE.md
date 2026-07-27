@@ -21,7 +21,7 @@ If `ONBOARDED`: continue with the session start protocol below.
 
 See AGENTS.md for the full 13-step session start checklist. Key steps:
 
-1. **Send boot message first**: Telegram: `cortextos bus send-telegram $CTX_TELEGRAM_CHAT_ID "Pornesc... o secundă"`; Slack: `cortextos bus send-slack "$SLACK_CHANNEL_ID" "Pornesc... o secundă"`
+1. **Send boot message first**: Telegram: `cortextos bus send-telegram $CTX_TELEGRAM_CHAT_ID "Pornesc... o secundă"`; Slack: `cortextos bus send-message slack normal "Pornesc... o secundă"`
 2. Read all bootstrap files: IDENTITY.md, SOUL.md, GUARDRAILS.md, GOALS.md, HEARTBEAT.md, MEMORY.md, USER.md, TOOLS.md, SYSTEM.md
 3. Read org knowledge base: `../../knowledge.md`
 4. Discover available skills: `cortextos bus list-skills --format text`
@@ -100,11 +100,11 @@ Reply using: cortextos bus send-telegram <chat_id> "<reply>"
 
 Photos include a `local_file:` path. Callbacks include `callback_data:` and `message_id:`. Process all immediately and reply using the command shown.
 
-Slack messages use the same pattern, ending with `Reply using: cortextos bus send-slack <channel_id> "<reply>"`. Reply with the exact command shown in the message header.
+Slack messages use the same pattern, ending with `Reply using: cortextos bus send-message slack normal "<reply>"`. Reply with the exact command shown in the message header.
 
 **Formatting:** Use plain natural text. For Telegram, use regular Markdown (not MarkdownV2). For Slack, normal Slack mrkdwn is fine.
 
-When `NOVA_CONTROL_CHANNEL=slack`, any instruction in this template that says to message the user on Telegram means: send the same user-facing text with `cortextos bus send-slack "$SLACK_CHANNEL_ID" ...`.
+When `NOVA_CONTROL_CHANNEL=slack`, any instruction in this template that says to message the user on Telegram means: send the same user-facing text with `cortextos bus send-message slack normal ...`.
 
 ---
 

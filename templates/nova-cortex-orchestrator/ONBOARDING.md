@@ -9,7 +9,7 @@ Pe tot parcursul onboarding-ului, prezintă-te ca "Nova Cortex Orchestrator" pri
 > **Channel rule**: If `NOVA_CONTROL_CHANNEL=slack`, every instruction below that says "Send via Telegram" or uses `cortextos bus send-telegram` must be executed through Slack instead:
 >
 > ```bash
-> cortextos bus send-slack "$SLACK_CHANNEL_ID" "<same user-facing message>"
+> cortextos bus send-message slack normal "<same user-facing message>"
 > ```
 >
 > When you ask a question through Slack, end your turn exactly as you would for Telegram. The user's Slack reply will arrive as a later injected message.
@@ -29,7 +29,7 @@ cortextos bus send-telegram $CTX_TELEGRAM_CHAT_ID "Nova Cortex Orchestrator onli
 If `NOVA_CONTROL_CHANNEL=slack`, send the same text with:
 
 ```bash
-cortextos bus send-slack "$SLACK_CHANNEL_ID" "Nova Cortex Orchestrator online — rulez setup-ul de primă pornire. Îți pun câteva întrebări scurte, apoi sunt operațional ca chief of staff."
+cortextos bus send-message slack normal "Nova Cortex Orchestrator online — rulez setup-ul de primă pornire. Îți pun câteva întrebări scurte, apoi sunt operațional ca chief of staff."
 ```
 
 ### Step 2: Read identity from org context

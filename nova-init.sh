@@ -108,9 +108,9 @@ if [[ -z "${NOVA_CONTROL_CHANNEL:-}" ]]; then
   echo -e "${BOLD}Pasul 2 din 4:${RESET} Pe ce canal vrei să vorbești cu agenții tăi?"
   echo ""
   echo "  1) Telegram   — bot privat, simplu de configurat, ideal pentru uz personal"
-  echo "  2) Slack      — Socket Mode bridge, ideal pentru echipe sau workspace business"
+  echo "  2) Slack      — Socket Mode, ideal pentru echipe sau workspace business"
   echo ""
-  nova_dim "Telegram este calea clasică. Slack pornește un bridge Socket Mode separat, util pentru echipe."
+  nova_dim "Telegram este calea clasică. Slack acceptă una sau mai multe persoane autorizate."
   read -r -p "  → Alege 1 sau 2 [1]: " CHANNEL_CHOICE
   CHANNEL_CHOICE="${CHANNEL_CHOICE:-1}"
   case "$CHANNEL_CHOICE" in
@@ -202,7 +202,7 @@ else
   read -r -p "  → SLACK_BOT_TOKEN (xoxb-...): " SLACK_BOT_TOKEN
   read -r -p "  → SLACK_APP_TOKEN (xapp-...): " SLACK_APP_TOKEN
   read -r -p "  → SLACK_CHANNEL_ID canal dedicat (ex: C123ABC): " SLACK_CHANNEL_ID
-  read -r -p "  → SLACK_ALLOWED_USER ID-ul tău Slack (ex: U123...): " SLACK_ALLOWED_USER
+  read -r -p "  → SLACK_ALLOWED_USER ID-urile Slack autorizate, separate prin virgulă (ex: U123...,U456...): " SLACK_ALLOWED_USER
 
   if [[ -z "$SLACK_BOT_TOKEN" || ! "$SLACK_BOT_TOKEN" =~ ^xoxb- ]]; then
     nova_fail "SLACK_BOT_TOKEN trebuie să înceapă cu xoxb-. Reia nova-init.sh."
@@ -213,8 +213,9 @@ else
   if [[ -z "$SLACK_CHANNEL_ID" || ! "$SLACK_CHANNEL_ID" =~ ^C[A-Z0-9]+$ ]]; then
     nova_fail "SLACK_CHANNEL_ID trebuie să înceapă cu C urmat de litere mari și cifre (ex: C123ABC). Reia nova-init.sh."
   fi
-  if [[ -z "$SLACK_ALLOWED_USER" || ! "$SLACK_ALLOWED_USER" =~ ^U[A-Z0-9]+$ ]]; then
-    nova_fail "SLACK_ALLOWED_USER trebuie să fie ID-ul tău Slack și să înceapă cu U (ex: U123ABC). Reia nova-init.sh."
+  SLACK_ALLOWED_USER="$(echo "$SLACK_ALLOWED_USER" | tr -d '[:space:]')"
+  if [[ -z "$SLACK_ALLOWED_USER" || ! "$SLACK_ALLOWED_USER" =~ ^[UW][A-Z0-9]+(,[UW][A-Z0-9]+)*$ ]]; then
+    nova_fail "SLACK_ALLOWED_USER trebuie să conțină unul sau mai multe ID-uri Slack U.../W..., separate prin virgulă (ex: U123ABC,U456DEF). Reia nova-init.sh."
   fi
 
   nova_ok "Credențiale Slack capturate (se salvează local, nu se share-uiesc niciodată)."
@@ -294,9 +295,7 @@ if [[ -f "$AGENT_ENV" ]]; then
     upsert_env "CHAT_ID"      "$CHAT_ID"
     upsert_env "ALLOWED_USER" "$USER_ID"
   else
-    # Native cortextOS Slack support. The daemon reads these values from the
-    # agent .env, starts the Socket Mode poller, and injects messages with
-    # `Reply using: cortextos bus send-slack ...`.
+    # Păstrăm credențialele lângă agent pentru administrare și bridge-ul Nova Cortex.
     upsert_env "SLACK_BOT_TOKEN"    "$SLACK_BOT_TOKEN"
     upsert_env "SLACK_APP_TOKEN"    "$SLACK_APP_TOKEN"
     upsert_env "SLACK_CHANNEL_ID"   "$SLACK_CHANNEL_ID"
@@ -323,9 +322,9 @@ else
 fi
 cd "$SCRIPT_DIR"
 
-# ─── Slack bridge legacy/fallback ────────────────────────────────────────
-if [[ "$NOVA_CONTROL_CHANNEL" == "slack" && "${NOVA_SLACK_MODE:-native}" == "bridge" ]]; then
-  nova_step "Pornesc Slack bridge legacy"
+# ─── Integrarea Slack Nova Cortex ───────────────────────────────────────
+if [[ "$NOVA_CONTROL_CHANNEL" == "slack" ]]; then
+  nova_step "Pornesc integrarea Slack Nova Cortex"
   SLACK_BRIDGE_DIR="$SCRIPT_DIR/slack-bridge"
   if [[ ! -d "$SLACK_BRIDGE_DIR" ]]; then
     nova_fail "Slack bridge lipsește de la $SLACK_BRIDGE_DIR — re-clonează repo-ul nova-agents."
@@ -355,9 +354,7 @@ EOF
   pm2 delete nova-slack-bridge >/dev/null 2>&1 || true
   (cd "$SLACK_BRIDGE_DIR" && pm2 start npm --name nova-slack-bridge -- start >/dev/null)
   pm2 save >/dev/null 2>&1 || true
-  nova_ok "Slack bridge online"
-elif [[ "$NOVA_CONTROL_CHANNEL" == "slack" ]]; then
-  nova_ok "Slack nativ cortextOS activat — bridge-ul legacy nu este pornit"
+  nova_ok "Integrarea Slack este online"
 fi
 
 # ─── Ecran final ─────────────────────────────────────────────────────────
@@ -390,10 +387,8 @@ echo "  3. După ce Analystul e online, Orchestratorul tău te poate ajuta să a
 echo "     agenți specialiști (CFO, marketer, ops, research — tu alegi)."
 echo ""
 echo -e "  ${DIM}Pentru a reporni Orchestratorul oricând: ${CYAN}cd ~/cortextos && cortextos start boss${RESET}"
-if [[ "$NOVA_CONTROL_CHANNEL" == "slack" && "${NOVA_SLACK_MODE:-native}" == "bridge" ]]; then
-  echo -e "  ${DIM}Pentru a reporni bridge-ul Slack: ${CYAN}pm2 restart nova-slack-bridge${RESET}"
-elif [[ "$NOVA_CONTROL_CHANNEL" == "slack" ]]; then
-  echo -e "  ${DIM}Slack rulează nativ prin cortextOS; pentru restart: ${CYAN}cd ~/cortextos && cortextos restart boss${RESET}"
+if [[ "$NOVA_CONTROL_CHANNEL" == "slack" ]]; then
+  echo -e "  ${DIM}Pentru a reporni integrarea Slack: ${CYAN}pm2 restart nova-slack-bridge${RESET}"
 fi
 echo ""
 echo -e "  ${DIM}Workspace: $ORG  •  runtime: $NOVA_AGENT_RUNTIME  •  canal: $NOVA_CONTROL_CHANNEL${RESET}"

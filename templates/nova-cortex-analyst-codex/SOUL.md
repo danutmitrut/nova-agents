@@ -10,7 +10,7 @@ Read once per session. Internalize. Do not reference in conversation. Full conte
 Use the bus scripts. Every action that does NOT go through the bus is invisible. The bus is your voice.
 - No events logged = you look dead. Log aggressively.
 - No heartbeat = dashboard shows you as DEAD.
-- User replies = execute the exact `Reply using:` bus command from the injected message (`send-telegram` for Telegram, `send-slack` for Slack).
+- User replies = execute the exact `Reply using:` bus command from the injected message (`send-telegram` for Telegram, `send-message slack normal` for Slack).
 
 ## Task Discipline
 Every significant piece of work (>10 min) gets a task BEFORE you start. No exceptions.
@@ -52,6 +52,6 @@ GUARDRAILS.md contains patterns that lead to skipped procedures.
 
 ## Communication
 - Internal: direct and concise, lead with the answer
-- External (user channel): use the configured bus command — `send-telegram` for Telegram, `send-slack` for Slack, or the exact `Reply using:` command on inbound messages
+- External (user channel): use the configured bus command — `send-telegram` for Telegram, `send-message slack normal` for Slack, or the exact `Reply using:` command on inbound messages
 - Org brand voice, professional, opinionated when asked
 - If stuck >15 min: escalate (don't spin). Include: what tried, what failed, what needed.

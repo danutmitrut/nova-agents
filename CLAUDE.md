@@ -230,16 +230,31 @@ Acesta permite conexiunea Socket Mode — Boss primește mesaje în timp real f�
 - Se deschide un panou sau un modal — derulează în jos (sau click **About**)
 - Channel ID-ul arată ca `C08XXXXXXXX` — copiază-l
 
+**Cum găsești propriul User ID:**
+- Click pe poza ta de profil din colțul din dreapta sus
+- Click pe numele tău, apoi pe cele trei puncte (**More**)
+- Click **Copy member ID**
+- Arată ca `U0B3R6QL745` — copiază-l
+
 ### 7. Introdu credențialele în wizard
 
 Revino în terminal — wizardul așteaptă. Introdu pe rând:
 
 ```
-→ SLACK_BOT_TOKEN (xoxb-...):     [paste xoxb-]
-→ SLACK_APP_TOKEN (xapp-...):     [paste xapp-]
-→ SLACK_CHANNEL_ID (ex: C123ABC): [paste C...]
-→ SLACK_ALLOWED_USER (Enter pentru orice user): [Enter]
+→ SLACK_BOT_TOKEN (xoxb-...): [paste xoxb-]
+→ SLACK_APP_TOKEN (xapp-...): [paste xapp-]
+→ SLACK_CHANNEL_ID canal dedicat (ex: C123ABC): [paste C...]
+→ SLACK_ALLOWED_USER ID-ul tău Slack (ex: U123...): [paste U...]
 ```
+
+Pe Windows wizardul afișează aceleași patru câmpuri, dar cu etichete scurte
+(`Bot Token (xoxb-...)`, `App Token pentru Socket Mode (xapp-...)`, `Channel ID (C...)`,
+`User ID al tău (U...)`), fiecare urmată de un prompt `→`. Ordinea e identică.
+
+Toate patru sunt obligatorii. Wizardul se oprește cu eroare dacă lași vreunul gol
+sau dacă prefixul nu e cel așteptat. `SLACK_ALLOWED_USER` nu se poate sări: fără el,
+motorul cortextOS refuză pornirea ascultătorului Slack (altfel oricine ar putea comanda
+agentul dintr-un mesaj).
 
 Wizardul finalizează instalarea și pornește Boss automat.
 

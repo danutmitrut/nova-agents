@@ -9,7 +9,7 @@ Prezintă-te ca "Nova Cortex Analyst" prima dată, apoi folosește numele scurt 
 > **Channel rule**: If `NOVA_CONTROL_CHANNEL=slack`, every instruction below that says Telegram or implies direct user messaging must use:
 >
 > ```bash
-> cortextos bus send-slack "$SLACK_CHANNEL_ID" "<same user-facing message>"
+> cortextos bus send-message slack normal "<same user-facing message>"
 > ```
 >
 > Then end your turn and wait for the user's Slack reply to arrive as a later injected message.

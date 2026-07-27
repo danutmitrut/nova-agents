@@ -60,7 +60,7 @@ The Mac/Linux wizard will:
 3. Walk you through a wizard: workspace name → control channel → Telegram bot handshake or Slack Socket Mode tokens.
 4. Install the Nova Cortex templates, spawn your Orchestrator, wire up the selected channel, and auto-start the agent.
 
-The Windows PowerShell wizard currently follows the original Telegram flow.
+The Windows PowerShell wizard offers the same four steps as the Mac/Linux one, including the Telegram or Slack choice.
 
 For Telegram, you'll need **two BotFather tokens** total: one for the Orchestrator (asked here), one for the Analyst (asked later by the Orchestrator during `/onboarding`). Create both ahead of time from `@BotFather` on Telegram if you want a smooth flow.
 
@@ -71,8 +71,9 @@ For Slack, create a Slack app with Socket Mode enabled before running the wizard
 - Channel ID for the dedicated control channel, e.g. `C123...`
 - Bot scopes: `app_mentions:read`, `channels:history`, `chat:write`, `files:read`, `im:history`, `im:read`
 - Bot events: `app_mention`, `message.channels`, `message.im`
+- Unul sau mai multe Slack Member ID-uri autorizate, de forma `U...` sau `W...`, separate prin virgulă
 
-After changing scopes or events in Slack, click **Reinstall to Workspace**. Without reinstalling, Slack will not deliver the new event types. Nova Cortex uses cortextOS native Slack support by default: the wizard writes `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN`, `SLACK_CHANNEL_ID`, and `SLACK_ALLOWED_USER` directly into the Orchestrator `.env`.
+After changing scopes or events in Slack, click **Reinstall to Workspace**. Without reinstalling, Slack will not deliver the new event types. Nova Cortex starts its Slack Socket Mode bridge automatically and writes `SLACK_ALLOWED_USER` as a comma-separated allowlist; only those members can command the agent.
 
 For Codex/OpenAI, run `codex` interactively once to sign in with ChatGPT/OpenAI, or set `OPENAI_API_KEY` for the user running the agents. The wizard reminds you if this is missing.
 
@@ -118,8 +119,8 @@ cd $env:USERPROFILE\cortextos; cortextos start boss
 | `scripts/nova-runtime-switch.sh` | Safely switches an existing agent between Claude and Codex with backup, template overlay, and fresh restart. |
 | `templates/nova-cortex-orchestrator-codex/` | Codex/OpenAI Orchestrator template (`runtime: codex-app-server`, `model: gpt-5-codex`). |
 | `templates/nova-cortex-analyst-codex/` | Codex/OpenAI Analyst template (`runtime: codex-app-server`, `model: gpt-5-codex`). |
-| `slack-bridge/` | Legacy/fallback Slack Socket Mode bridge. New installs use native cortextOS Slack by default; start the bridge only with `NOVA_SLACK_MODE=bridge`. |
-| `nova-init.ps1` | Windows-native wizard (PowerShell). Original Telegram setup flow. |
+| `slack-bridge/` | Slack Socket Mode bridge used by Nova Cortex installs. It supports a comma-separated multiuser allowlist. |
+| `nova-init.ps1` | Windows-native wizard (PowerShell). Same flow as `nova-init.sh`: runtime + workspace name + Telegram or Slack. |
 | `templates/nova-cortex-orchestrator/` | Branded Orchestrator template — installed into `$HOME/cortextos/templates/` by either init script. |
 | `templates/nova-cortex-analyst/` | Branded Analyst template — installed alongside, spawned by the Orchestrator during `/onboarding`. |
 | `LICENSE` | MIT, with cortextOS attribution. |
@@ -140,7 +141,7 @@ Want to fork this for your own brand?
 
 ## Engine & attribution
 
-Nova Cortex is a **branding + curated-templates layer** on top of [cortextOS](https://github.com/grandamenium/cortextos). The actual multi-agent runtime, daemon, bus, knowledge base, Telegram integration, and native Slack Socket Mode support all come from cortextOS — an open-source framework by Cortext LLC (MIT licensed). The `slack-bridge/` package remains as a legacy fallback for older cortextOS installs.
+Nova Cortex is a **branding + curated-templates layer** on top of [cortextOS](https://github.com/grandamenium/cortextos). The actual multi-agent runtime, daemon, bus, knowledge base, and Telegram integration come from cortextOS — an open-source framework by Cortext LLC (MIT licensed). Nova Cortex supplies the Slack Socket Mode bridge, installation flow, and multiuser Slack access control.
 
 We don't fork cortextOS. We pin to its releases and ship our templates on top. That means cortextOS updates flow downstream automatically.
 

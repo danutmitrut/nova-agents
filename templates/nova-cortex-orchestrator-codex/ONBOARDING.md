@@ -8,7 +8,7 @@ All user-facing messages must be in Romanian unless the user asks otherwise.
 
 > **Environment variables**: `CTX_ROOT`, `CTX_FRAMEWORK_ROOT`, `CTX_ORG`, `CTX_AGENT_NAME`, `CTX_AGENT_DIR`, and `CTX_INSTANCE_ID` are automatically set by the cortextOS framework. You do not need to set them — they are available in every shell command you run.
 
-> **Runtime:** This is a `codex-app-server` agent. User-facing replies go through the bus. Use `cortextos bus send-telegram <chat_id> '<msg>'` for Telegram and `cortextos bus send-slack <channel_id> '<msg>'` for Slack. If an injected user message includes a `Reply using:` line, execute that exact command.
+> **Runtime:** This is a `codex-app-server` agent. User-facing replies go through the bus. Use `cortextos bus send-telegram <chat_id> '<msg>'` for Telegram and `cortextos bus send-message slack normal '<msg>'` for Slack. If an injected user message includes a `Reply using:` line, execute that exact command.
 
 **IMPORTANT: When this document says "END YOUR TURN", you MUST stop all tool execution and end your response. The user's reply will arrive as your next conversation turn. Do not keep working — the message will not reach you until your current turn ends.**
 
@@ -16,7 +16,7 @@ All user-facing messages must be in Romanian unless the user asks otherwise.
 
 1. **Introduce yourself** through the configured channel:
    - Telegram: `cortextos bus send-telegram $CTX_TELEGRAM_CHAT_ID '<msg>'`
-   - Slack: `cortextos bus send-slack $SLACK_CHANNEL_ID '<msg>'`
+   - Slack: `cortextos bus send-message slack normal '<msg>'`
 
    > "Bună! Sunt **Nova Cortex Orchestrator** — chief of staff-ul tău pentru echipa de agenți. Rulez pe Codex/OpenAI prin cortextOS. Îți pun câteva întrebări scurte ca să mă configurez corect, apoi pot coordona agenții 24/7."
 
@@ -368,7 +368,7 @@ ENABLED=$(cat "${CTX_ROOT}/config/enabled-agents.json" 2>/dev/null || echo '[]')
 if ! echo "$ENABLED" | jq -e --arg name "$CTX_AGENT_NAME" '.[] | select(. == $name)' > /dev/null 2>&1; then
   echo "WARNING: $CTX_AGENT_NAME not found in enabled-agents.json"
   if [ "$NOVA_CONTROL_CHANNEL" = "slack" ]; then
-    cortextos bus send-slack "$SLACK_CHANNEL_ID" "Warning: I completed onboarding but I'm not in enabled-agents.json. Run: cortextos start $CTX_AGENT_NAME"
+    cortextos bus send-message slack normal "Warning: I completed onboarding but I'm not in enabled-agents.json. Run: cortextos start $CTX_AGENT_NAME"
   else
     cortextos bus send-telegram "$CTX_TELEGRAM_CHAT_ID" "Warning: I completed onboarding but I'm not in enabled-agents.json. Run: cortextos start $CTX_AGENT_NAME"
   fi
@@ -488,4 +488,4 @@ fi
 - If the user gives short answers, ask follow-up questions. More context = better agent.
 - Do NOT proceed to normal operations until onboarding is complete and the marker is written.
 - If a tool setup fails, note it as a blocker in GOALS.md and move on. Don't get stuck.
-- Every time you message the user, use the configured bus command: `send-telegram` for Telegram, `send-slack "$SLACK_CHANNEL_ID"` for Slack, or the exact `Reply using:` line from an inbound user message.
+- Every time you message the user, use the configured bus command: `send-telegram` for Telegram, `send-message slack normal` for Slack, or the exact `Reply using:` line from an inbound user message.

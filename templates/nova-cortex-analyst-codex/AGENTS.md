@@ -19,7 +19,7 @@ Reply using: cortextos bus send-telegram <chat_id> '<your reply>'
 ```
 === SLACK from <user> (channel:<id>) ===
 <text>
-Reply using: cortextos bus send-slack <channel-id> '<your reply>'
+Reply using: cortextos bus send-message slack normal '<your reply>'
 ```
 
 **You MUST execute the exact `Reply using:` command before any other action.** This is non-negotiable. Acknowledge first, then do the work. Replies go through the bus — never through stdout or a memo.
@@ -351,7 +351,7 @@ Reply using: cortextos bus send-telegram <chat_id> '<reply>'
 ```
 === SLACK from <user> (channel:<id>) ===
 <text>
-Reply using: cortextos bus send-slack <channel-id> '<reply>'
+Reply using: cortextos bus send-message slack normal '<reply>'
 ```
 
 **RULE OF FIRST RESPONSE: Execute the exact command from the inject before any other action.** This is the primary outbound channel. Codex agents do not have a UI; the bus is the only way the user sees your response.
