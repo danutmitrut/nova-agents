@@ -13,6 +13,9 @@
 # Acceptă variabila de mediu $env:NOVA_AGENT_RUNTIME (codex|claude). Implicit claude.
 
 $ErrorActionPreference = 'Stop'
+$novaOriginalEnvironment = @{}
+Get-ChildItem Env: | ForEach-Object { $novaOriginalEnvironment[$_.Name] = $_.Value }
+try {
 
 # ─── Helper-i de output branded ─────────────────────────────────────────
 function Nova-Say($msg)  { Write-Host "▸ $msg" -ForegroundColor Magenta }
@@ -99,6 +102,8 @@ if (-not $nodeOk) {
   }
 }
 
+$NpmCmd = (Get-Command npm.cmd -ErrorAction Stop).Source
+
 # ─── Runtime AI: Claude Code sau OpenAI Codex ────────────────────────────
 if ($NOVA_AGENT_RUNTIME -eq 'codex') {
 
@@ -107,8 +112,8 @@ if ($NOVA_AGENT_RUNTIME -eq 'codex') {
     Nova-Ok "Codex CLI deja instalat ($(codex --version 2>$null | Select-Object -First 1))"
   } else {
     Nova-Say "Instalez OpenAI Codex CLI..."
-    npm install -g '@openai/codex'
-    if ($LASTEXITCODE -ne 0) { Nova-Fail "npm install Codex a esuat" }
+    & $NpmCmd install -g '@openai/codex'
+    if ($LASTEXITCODE -ne 0) { Nova-Fail 'npm install Codex a esuat' }
     Nova-Ok "Codex CLI instalat"
   }
 
@@ -139,8 +144,8 @@ if ($NOVA_AGENT_RUNTIME -eq 'codex') {
     Nova-Ok "Claude Code deja instalat ($(claude --version 2>$null | Select-Object -First 1))"
   } else {
     Nova-Say "Instalez Claude Code CLI..."
-    npm install -g '@anthropic-ai/claude-code'
-    if ($LASTEXITCODE -ne 0) { Nova-Fail "npm install Claude Code a esuat" }
+    & $NpmCmd install -g '@anthropic-ai/claude-code'
+    if ($LASTEXITCODE -ne 0) { Nova-Fail 'npm install Claude Code a esuat' }
     Nova-Ok "Claude Code instalat"
     Nova-Dim "Va trebui să te autentifici cu 'claude' (o singură dată) înainte ca agenții să vorbească cu Anthropic."
   }
@@ -167,44 +172,6 @@ if ($NOVA_AGENT_RUNTIME -eq 'codex') {
   }
   Nova-Ok "Claude Code autentificat"
 
-  # Seteaza skipDangerousModePermissionPrompt — evita prompt-ul de --dangerously-skip-permissions
-  # care blocheaza PTY-ul cortextOS (Claude Code 2.1.133+).
-  $claudeSettingsFile = Join-Path $env:USERPROFILE '.claude\settings.json'
-  if (Test-Path $claudeSettingsFile) {
-    $settings = Get-Content $claudeSettingsFile -Raw | ConvertFrom-Json
-    if (-not $settings.skipDangerousModePermissionPrompt) {
-      Nova-Say "Setez skipDangerousModePermissionPrompt in .claude\settings.json..."
-      $settingsBackup = "$claudeSettingsFile.nova-bak"
-      if (-not (Test-Path $settingsBackup)) { Copy-Item $claudeSettingsFile $settingsBackup -ErrorAction SilentlyContinue }
-      $settings | Add-Member -NotePropertyName 'skipDangerousModePermissionPrompt' -NotePropertyValue $true -Force
-      $settings | ConvertTo-Json -Depth 20 | Set-Content $claudeSettingsFile -Encoding UTF8
-      Nova-Ok "skipDangerousModePermissionPrompt setat"
-    } else {
-      Nova-Ok "skipDangerousModePermissionPrompt deja setat"
-    }
-  } else {
-    New-Item -ItemType Directory -Path (Join-Path $env:USERPROFILE '.claude') -Force | Out-Null
-    '{"skipDangerousModePermissionPrompt": true}' | Set-Content $claudeSettingsFile -Encoding UTF8
-    Nova-Ok "Creat .claude\settings.json cu skipDangerousModePermissionPrompt"
-  }
-
-  # Marcheaza onboarding-ul ca terminat — evita first-run wizard la fiecare lansare PTY.
-  $claudeProfileFile = Join-Path $env:USERPROFILE '.claude.json'
-  if (Test-Path $claudeProfileFile) {
-    $claudeProfile = Get-Content $claudeProfileFile -Raw | ConvertFrom-Json
-    if (-not $claudeProfile.hasCompletedOnboarding) {
-      Nova-Say "Marchez onboarding Claude Code ca terminat in .claude.json..."
-      $profileBackup = "$claudeProfileFile.nova-bak"
-      if (-not (Test-Path $profileBackup)) { Copy-Item $claudeProfileFile $profileBackup -ErrorAction SilentlyContinue }
-      $claudeProfile | Add-Member -NotePropertyName 'hasCompletedOnboarding' -NotePropertyValue $true -Force
-      $claudeProfile | Add-Member -NotePropertyName 'hasInitOnboardingBeenShown' -NotePropertyValue $true -Force
-      $claudeProfile | Add-Member -NotePropertyName 'lastOnboardingVersion' -NotePropertyValue '2.0.26' -Force
-      $claudeProfile | ConvertTo-Json -Depth 20 | Set-Content $claudeProfileFile -Encoding UTF8
-      Nova-Ok "Flag hasCompletedOnboarding setat"
-    } else {
-      Nova-Ok "Onboarding Claude Code deja marcat ca terminat"
-    }
-  }
 
 }
 
@@ -360,48 +327,61 @@ if ($pythonExe) {
   }
 }
 
-# ─── cortextOS engine ────────────────────────────────────────────────────
-Nova-Step "Verific cortextOS (motorul pe care rulează Nova Cortex)"
-if (Get-Command cortextos -ErrorAction SilentlyContinue) {
-  Nova-Ok "cortextOS deja instalat"
-} else {
-  Nova-Say "Instalez motorul cortextOS..."
-  Nova-Dim "Powered by cortextOS — framework open-source multi-agent de la Cortext LLC (MIT)."
-  # install.mjs e ESM (top-level await, import.meta) — `node -e` cu eval rupe pentru ESM.
-  # Descarcam intai la disk, apoi rulam `node fisier.mjs` ca sa primim parsing ESM corect.
-  $installerUrl = 'https://raw.githubusercontent.com/danutmitrut/cortextos/main/install.mjs'
-  $installerTmp = Join-Path $env:TEMP "cortextos-install-$([guid]::NewGuid()).mjs"
-  # CORTEXTOS_REPO fixeaza sursa pe fork-ul danutmitrut/cortextos: un snapshot
-  # controlat, sincronizat periodic din upstream dupa verificare. Toti cursantii
-  # primesc astfel aceeasi versiune testata, nu upstream-latest nefiltrat.
-  # install.mjs suporta nativ variabila asta ca override de sursa.
-  $env:CORTEXTOS_REPO = 'https://github.com/danutmitrut/cortextos.git'
-  try {
-    Invoke-WebRequest -Uri $installerUrl -OutFile $installerTmp -UseBasicParsing -ErrorAction Stop
-    node $installerTmp
-    if ($LASTEXITCODE -ne 0) { Nova-Fail "Instalarea cortextOS a esuat (exit $LASTEXITCODE)" }
-  } finally {
-    Remove-Item -Path $installerTmp -ErrorAction SilentlyContinue
-    Remove-Item -Path Env:CORTEXTOS_REPO -ErrorAction SilentlyContinue
-  }
-
-  # Refresh PATH si verifica
-  $env:Path = [System.Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path','User')
-  if (-not (Get-Command cortextos -ErrorAction SilentlyContinue)) {
-    Nova-Fail "cortextOS instalat dar nu pe PATH. Inchide PowerShell si redeschide, apoi reia."
-  }
-  Nova-Ok "cortextOS instalat si pe PATH"
-}
-
 # ─── PM2 (manager de proces pentru daemon) ──────────────────────────────
 Nova-Step "Verific PM2 (manager de proces pentru daemon)"
-if (Get-Command pm2 -ErrorAction SilentlyContinue) {
-  Nova-Ok "PM2 deja instalat ($(pm2 --version 2>$null | Select-Object -First 1))"
+if (Get-Command pm2.cmd -ErrorAction SilentlyContinue) {
+  Nova-Ok "PM2 disponibil (fără pornirea managerului)"
 } else {
   Nova-Say "PM2 lipseste — il instalez global..."
-  npm install -g pm2
+  & $NpmCmd install -g pm2
   if ($LASTEXITCODE -ne 0) { Nova-Fail "Instalarea PM2 a esuat" }
   Nova-Ok "PM2 instalat"
+}
+
+Nova-Step "Verific engine-ul și runtime-ul existent"
+& node (Join-Path $PSScriptRoot 'scripts\nova-engine.mjs') prepare
+if ($LASTEXITCODE -ne 0) { Nova-Fail 'Verificarea engine-ului a eșuat; instalarea se oprește.' }
+
+if ($NOVA_AGENT_RUNTIME -eq 'claude') {
+  # Seteaza skipDangerousModePermissionPrompt — evita prompt-ul de --dangerously-skip-permissions
+  # care blocheaza PTY-ul cortextOS (Claude Code 2.1.133+).
+  $claudeSettingsFile = Join-Path $env:USERPROFILE '.claude\settings.json'
+  if (Test-Path $claudeSettingsFile) {
+    $settings = Get-Content $claudeSettingsFile -Raw | ConvertFrom-Json
+    if (-not $settings.skipDangerousModePermissionPrompt) {
+      Nova-Say "Setez skipDangerousModePermissionPrompt in .claude\settings.json..."
+      $settingsBackup = "$claudeSettingsFile.nova-bak"
+      if (-not (Test-Path $settingsBackup)) { Copy-Item $claudeSettingsFile $settingsBackup -ErrorAction SilentlyContinue }
+      $settings | Add-Member -NotePropertyName 'skipDangerousModePermissionPrompt' -NotePropertyValue $true -Force
+      $settings | ConvertTo-Json -Depth 20 | Set-Content $claudeSettingsFile -Encoding UTF8
+      Nova-Ok "skipDangerousModePermissionPrompt setat"
+    } else {
+      Nova-Ok "skipDangerousModePermissionPrompt deja setat"
+    }
+  } else {
+    New-Item -ItemType Directory -Path (Join-Path $env:USERPROFILE '.claude') -Force | Out-Null
+    '{"skipDangerousModePermissionPrompt": true}' | Set-Content $claudeSettingsFile -Encoding UTF8
+    Nova-Ok "Creat .claude\settings.json cu skipDangerousModePermissionPrompt"
+  }
+
+  # Marcheaza onboarding-ul ca terminat — evita first-run wizard la fiecare lansare PTY.
+  $claudeProfileFile = Join-Path $env:USERPROFILE '.claude.json'
+  if (Test-Path $claudeProfileFile) {
+    $claudeProfile = Get-Content $claudeProfileFile -Raw | ConvertFrom-Json
+    if (-not $claudeProfile.hasCompletedOnboarding) {
+      Nova-Say "Marchez onboarding Claude Code ca terminat in .claude.json..."
+      $profileBackup = "$claudeProfileFile.nova-bak"
+      if (-not (Test-Path $profileBackup)) { Copy-Item $claudeProfileFile $profileBackup -ErrorAction SilentlyContinue }
+      $claudeProfile | Add-Member -NotePropertyName 'hasCompletedOnboarding' -NotePropertyValue $true -Force
+      $claudeProfile | Add-Member -NotePropertyName 'hasInitOnboardingBeenShown' -NotePropertyValue $true -Force
+      $claudeProfile | Add-Member -NotePropertyName 'lastOnboardingVersion' -NotePropertyValue '2.0.26' -Force
+      $claudeProfile | ConvertTo-Json -Depth 20 | Set-Content $claudeProfileFile -Encoding UTF8
+      Nova-Ok "Flag hasCompletedOnboarding setat"
+    } else {
+      Nova-Ok "Onboarding Claude Code deja marcat ca terminat"
+    }
+  }
+
 }
 
 # ─── Sumar final ────────────────────────────────────────────────────────
@@ -418,7 +398,19 @@ if ($NOVA_AGENT_RUNTIME -eq 'codex') {
   Write-Host "  Claude Code:    $((claude --version 2>$null | Select-Object -First 1))"
 }
 Write-Host "  cortextOS:      instalat"
-Write-Host "  PM2:            $(pm2 --version 2>$null | Select-Object -First 1)"
+Write-Host "  PM2:            disponibil; manager neinvocat pentru versiune"
 Write-Host ""
 Write-Host "Următor: rulează " -NoNewline; Write-Host ".\nova-init.ps1" -ForegroundColor Cyan -NoNewline; Write-Host " ca să configurezi primii agenți Nova Cortex."
 Write-Host ""
+
+} finally {
+  # Developer Shell/PATH overrides belong to this installer invocation only.
+  Get-ChildItem Env: | ForEach-Object {
+    if (-not $novaOriginalEnvironment.ContainsKey($_.Name)) {
+      [Environment]::SetEnvironmentVariable($_.Name, $null, 'Process')
+    }
+  }
+  foreach ($key in $novaOriginalEnvironment.Keys) {
+    [Environment]::SetEnvironmentVariable($key, $novaOriginalEnvironment[$key], 'Process')
+  }
+}

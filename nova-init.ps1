@@ -1,6 +1,6 @@
 ﻿# nova-init.ps1 — Configurează primii tăi agenți Nova Cortex (Windows nativ).
 #
-# Rulează verificarea de prereq (nova-prereq.ps1) dacă cortextOS lipsește, apoi
+# Rulează întotdeauna verificarea prereq într-un proces copil, apoi
 # ghidează utilizatorul prin setup-ul Nova Cortex:
 #   - Alege runtime: Claude Code sau OpenAI Codex
 #   - Alege canal de control: Telegram sau Slack
@@ -20,7 +20,11 @@ function Nova-Fail($msg) { Write-Host "  ✗ $msg" -ForegroundColor Red; exit 1 
 function Nova-Step($msg) { Write-Host ""; Write-Host "─── $msg ───" -ForegroundColor Cyan }
 function Nova-Dim($msg)  { Write-Host "    $msg" -ForegroundColor DarkGray }
 
-$SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
+$SCRIPT_DIR = $PSScriptRoot
+$novaOriginalRuntime = $env:NOVA_AGENT_RUNTIME
+$novaOriginalFramework = $env:CTX_FRAMEWORK_ROOT
+$novaOriginalPath = $env:Path
+try {
 
 # ─── Refuză WSL2 ────────────────────────────────────────────────────────
 if (Test-Path '/proc/version' -ErrorAction SilentlyContinue) {
@@ -79,16 +83,18 @@ switch ($CHANNEL_CHOICE) {
 }
 Nova-Ok "Canal ales: $NOVA_CONTROL_CHANNEL"
 
-# ─── Rulează prereq dacă cortextOS lipsește ────────────────────────────
-if (-not (Get-Command cortextos -ErrorAction SilentlyContinue)) {
-  Nova-Say "Întâi ne asigurăm că toolbox-ul tău e gata..."
-  $prereqScript = Join-Path $SCRIPT_DIR 'nova-prereq.ps1'
-  if (Test-Path $prereqScript) {
-    & $prereqScript
-  } else {
-    Nova-Fail "cortextOS nu e instalat și nova-prereq.ps1 nu e lângă acest script. Rulează nova-prereq.ps1 manual întâi."
-  }
-}
+# Explicit child boundary: a successful prereq exit must not terminate the wizard.
+$prereqScript = Join-Path $PSScriptRoot 'nova-prereq.ps1'
+if (-not (Test-Path $prereqScript)) { Nova-Fail 'nova-prereq.ps1 lipsește lângă wizard.' }
+$powerShellName = if ($PSVersionTable.PSEdition -eq 'Core') { 'pwsh.exe' } else { 'powershell.exe' }
+$powerShellExe = Join-Path $PSHOME $powerShellName
+& $powerShellExe -NoProfile -File $prereqScript
+if ($LASTEXITCODE -ne 0) { Nova-Fail 'Prerequisitele au eșuat; configurarea se oprește.' }
+# Child installations may have added user/machine PATH entries; retain caller PATH.
+$env:Path = $env:Path + ';' + [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
+$NpmCmd = (Get-Command npm.cmd -ErrorAction Stop).Source
+$Pm2Cmd = (Get-Command pm2.cmd -ErrorAction Stop).Source
+$CortextosCmd = (Get-Command cortextos.cmd -ErrorAction Stop).Source
 
 # ─── Wizard ──────────────────────────────────────────────────────────────
 Nova-Step "Configurăm workspace-ul tău Nova Cortex"
@@ -207,6 +213,9 @@ if ($NOVA_CONTROL_CHANNEL -eq 'telegram') {
 
 }
 
+& node (Join-Path $PSScriptRoot 'scripts\nova-engine.mjs') check
+if ($LASTEXITCODE -ne 0) { Nova-Fail 'Verificarea engine-ului a eșuat înainte de configurare.' }
+
 # ─── Instalează template-urile Nova Cortex în directorul cortextOS ─────
 Nova-Step "Instalez template-urile de agenți Nova Cortex"
 
@@ -225,8 +234,11 @@ Get-ChildItem -Path $NOVA_TEMPLATES_SRC -Directory -Filter 'nova-cortex-*' | For
   $tmplName = $_.Name
   $destPath = Join-Path $CORTEXTOS_TEMPLATES $tmplName
   if (Test-Path $destPath) {
-    Remove-Item -Recurse -Force $destPath
+    Nova-Fail "Template existent la $destPath; păstrat fără suprascriere. Verifică preflight-ul înainte de reluare."
   }
+}
+Get-ChildItem -Path $NOVA_TEMPLATES_SRC -Directory -Filter 'nova-cortex-*' | ForEach-Object {
+  $tmplName = $_.Name
   Copy-Item -Recurse $_.FullName $CORTEXTOS_TEMPLATES
   Nova-Ok "Template instalat: $tmplName"
 }
@@ -241,16 +253,17 @@ Push-Location $CORTEXTOS_HOME
 
 try {
   Nova-Say "Creez workspace-ul..."
-  cortextos init $ORG *> $null
+  & $CortextosCmd init $ORG *> $null
   if ($LASTEXITCODE -ne 0) { Nova-Fail "Nu am putut crea workspace-ul. Rulează 'cortextos doctor' pentru diagnostic." }
   Nova-Ok "Workspace `"$ORG`" gata"
 
   Nova-Say "Pornesc Nova Cortex Orchestrator (chief of staff-ul tău)..."
-  cortextos add-agent boss --template $ORCH_TEMPLATE --org $ORG *> $null
+  & $CortextosCmd add-agent boss --template $ORCH_TEMPLATE --org $ORG *> $null
   if ($LASTEXITCODE -ne 0) { Nova-Fail "Template-ul Orchestrator nu există la $CORTEXTOS_TEMPLATES\$ORCH_TEMPLATE\. Pasul de copiere template-uri probabil a eșuat — re-rulează scriptul." }
   Nova-Ok "Nova Cortex Orchestrator creat"
 } finally {
   Pop-Location
+  $env:CTX_FRAMEWORK_ROOT = $novaOriginalFramework
 }
 
 # ─── Scrie .env-ul agentului ───────────────────────────────────────────
@@ -308,16 +321,9 @@ Nova-Step "Pornesc Orchestratorul tău"
 Push-Location $CORTEXTOS_HOME
 try {
   Nova-Say "Pornesc daemon-ul + boss..."
-  cortextos start boss *> $null
-  if ($LASTEXITCODE -eq 0) {
-    if ($NOVA_CONTROL_CHANNEL -eq 'telegram') {
-      Nova-Ok "Boss e online — gata să vorbească pe Telegram"
-    } else {
-      Nova-Ok "Boss e online"
-    }
-  } else {
-    Nova-Warn "Auto-start a eșuat. Pornește manual: cd $CORTEXTOS_HOME; cortextos start boss"
-  }
+  & node (Join-Path $PSScriptRoot 'scripts\nova-engine.mjs') start --org $ORG --channel $NOVA_CONTROL_CHANNEL
+  if ($LASTEXITCODE -ne 0) { Nova-Fail 'Pornirea verificată a eșuat; integrarea și succesul final sunt oprite.' }
+  Nova-Ok 'Daemon și Boss verificate; schimbul de mesaje pe canal rămâne de testat.'
 } finally {
   Pop-Location
 }
@@ -327,7 +333,7 @@ if ($NOVA_CONTROL_CHANNEL -eq 'slack') {
   Nova-Step "Pornesc integrarea Slack Nova Cortex"
   $SLACK_BRIDGE_DIR = Join-Path $SCRIPT_DIR 'slack-bridge'
   if (-not (Test-Path $SLACK_BRIDGE_DIR)) {
-    Nova-Warn "Directorul slack-bridge lipsește de la $SLACK_BRIDGE_DIR — bridge-ul nu va porni."
+    Nova-Fail "Directorul slack-bridge lipsește de la $SLACK_BRIDGE_DIR — bridge-ul nu va porni."
   } else {
     # Scrie .env pentru bridge
     $bridgeEnv = @"
@@ -348,14 +354,22 @@ SLACK_MAX_FILE_BYTES=104857600
     Push-Location $SLACK_BRIDGE_DIR
     try {
       Nova-Say "Instalez dependențele bridge-ului..."
-      npm install *> $null
-      pm2 delete nova-slack-bridge 2>$null | Out-Null
-      pm2 start npm --name nova-slack-bridge -- start *> $null
-      if ($LASTEXITCODE -eq 0) {
-        Nova-Ok "Integrarea Slack este online (PM2: nova-slack-bridge)"
-      } else {
-        Nova-Warn "PM2 start a eșuat pentru Slack bridge. Pornește manual: cd $SLACK_BRIDGE_DIR; pm2 start npm --name nova-slack-bridge -- start"
-      }
+      & $NpmCmd install *> $null
+      if ($LASTEXITCODE -ne 0) { Nova-Fail 'Instalarea dependențelor Slack a eșuat.' }
+      & $Pm2Cmd delete nova-slack-bridge 2>$null | Out-Null
+      & $Pm2Cmd start $NpmCmd --name nova-slack-bridge -- start *> $null
+      if ($LASTEXITCODE -ne 0) { Nova-Fail 'Pornirea Slack bridge a eșuat; snapshot nesalvat.' }
+      # Keep raw environments in memory only; never emit PM2 JSON to the console.
+      $bridgeJson = & $Pm2Cmd jlist
+      if ($LASTEXITCODE -ne 0) { Nova-Fail 'Starea Slack bridge nu poate fi verificată; snapshot nesalvat.' }
+      # Windows PowerShell 5.1 cannot parse username/USERNAME pairs. Node
+      # selects and validates in memory, returning only a constant status.
+      $bridgeStatus = $bridgeJson | & node (Join-Path $PSScriptRoot 'scripts/installer/slack-status.mjs')
+      if ($LASTEXITCODE -ne 0 -or $bridgeStatus -ne 'online') { Nova-Fail 'Slack bridge nu este online; snapshot nesalvat.' }
+      $bridgeJson = $null
+      & node (Join-Path $PSScriptRoot 'scripts\nova-engine.mjs') save
+      if ($LASTEXITCODE -ne 0) { Nova-Fail 'Snapshot PM2 nesalvat; verificarea sau acordul necesar a eșuat.' }
+      Nova-Ok 'Slack bridge online; schimbul de mesaje rămâne de testat.'
     } finally {
       Pop-Location
     }
@@ -392,10 +406,16 @@ Write-Host ""
 Write-Host "  3. După ce Analystul e online, Orchestratorul tău te poate ajuta să adaugi"
 Write-Host "     agenți specialiști (CFO, marketer, ops, research — tu alegi)."
 Write-Host ""
-Write-Host "  Pentru a reporni Orchestratorul oricând: cd $CORTEXTOS_HOME; cortextos start boss" -ForegroundColor DarkGray
+Write-Host "  Pornire verificată: node `"$PSScriptRoot\scripts\nova-engine.mjs`" start --org $ORG --channel $NOVA_CONTROL_CHANNEL" -ForegroundColor DarkGray
 if ($NOVA_CONTROL_CHANNEL -eq 'slack') {
   Write-Host "  Pentru a reporni integrarea Slack: pm2 restart nova-slack-bridge" -ForegroundColor DarkGray
 }
 Write-Host ""
 Write-Host "  Workspace: $ORG  •  runtime: $NOVA_AGENT_RUNTIME  •  canal: $NOVA_CONTROL_CHANNEL" -ForegroundColor DarkGray
 Write-Host ""
+
+} finally {
+  $env:NOVA_AGENT_RUNTIME = $novaOriginalRuntime
+  $env:CTX_FRAMEWORK_ROOT = $novaOriginalFramework
+  $env:Path = $novaOriginalPath
+}

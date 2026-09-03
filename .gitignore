@@ -22,3 +22,6 @@ slack-bridge/node_modules/
 
 # OS-specific
 Thumbs.db
+
+# Isolated development worktrees
+.worktrees/

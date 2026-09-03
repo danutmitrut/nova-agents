@@ -10,6 +10,7 @@
 # Acceptă variabila de mediu NOVA_AGENT_RUNTIME (codex|claude). Implicit claude.
 
 set -e
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # ─── Helper-i de output branded ───────────────────────────────────────────
 PURPLE='\033[0;35m'
@@ -202,6 +203,32 @@ else
   fi
   nova_ok "Claude Code autentificat"
 
+
+fi
+
+# ─── PM2 (manager de proces pentru daemon — cortextOS depinde de el) ──────
+# cortextOS install.mjs încearcă să instaleze PM2 via `npm install -g pm2` fără
+# sudo. Aceeași eroare EACCES ca npm link când npm prefix=/usr. Fără PM2,
+# `cortextos start <agent>` nu poate porni daemon-ul, deci sistemul nu intră
+# în online. Auto-instalează cu sudo dacă lipsește.
+nova_step "Verific PM2 (manager de proces pentru daemon)"
+if command -v pm2 >/dev/null 2>&1; then
+  nova_ok "PM2 disponibil (fără pornirea managerului)"
+else
+  nova_say "PM2 lipsește — îl instalez global cu sudo..."
+  nova_dim "PM2 ține agenții tăi vii 24/7. S-ar putea să-ți ceară parola Linux."
+  sudo npm install -g pm2
+  hash -r 2>/dev/null || true
+  if ! command -v pm2 >/dev/null 2>&1; then
+    nova_fail "Instalarea PM2 cu sudo a eșuat. Rulează manual: sudo npm install -g pm2"
+  fi
+  nova_ok "PM2 disponibil"
+fi
+
+nova_step "Verific engine-ul și runtime-ul existent"
+node "$SCRIPT_DIR/scripts/nova-engine.mjs" prepare || nova_fail "Verificarea engine-ului a eșuat; instalarea se oprește."
+
+if [[ "$NOVA_AGENT_RUNTIME" == "claude" ]]; then
   # Seteaza `skipDangerousModePermissionPrompt: true` in ~/.claude/settings.json.
   # Claude Code 2.1.133+ a adaugat o avertizare manuala pentru
   # `--dangerously-skip-permissions` care blocheaza PTY-ul cortextOS (auto-accept-ul
@@ -246,62 +273,6 @@ else
 
 fi
 
-# ─── cortextOS engine ─────────────────────────────────────────────────────
-nova_step "Verific cortextOS (motorul pe care rulează Nova Cortex)"
-if command -v cortextos >/dev/null 2>&1; then
-  nova_ok "cortextOS deja instalat ($(cortextos --version 2>/dev/null | head -1 || echo 'versiune necunoscută'))"
-else
-  nova_say "Instalez motorul cortextOS..."
-  nova_dim "Powered by cortextOS — framework open-source multi-agent de la Cortext LLC (MIT)."
-  # CORTEXTOS_REPO fixează sursa pe fork-ul danutmitrut/cortextos: un snapshot
-  # controlat, sincronizat periodic din upstream după verificare. Toți cursanții
-  # primesc astfel aceeași versiune testată, nu upstream-latest nefiltrat.
-  # install.mjs suportă nativ variabila asta ca override de sursă.
-  curl -fsSL https://raw.githubusercontent.com/danutmitrut/cortextos/main/install.mjs | CORTEXTOS_REPO='https://github.com/danutmitrut/cortextos.git' node
-
-  # cortextOS install.mjs face `npm link` fără sudo. Pe Node instalat via apt unde
-  # npm prefix=/usr (scrie cere root), link-ul eșuează silent și `cortextos` nu
-  # ajunge pe PATH. Detectează cazul ăsta și re-rulează cu sudo ca studenții să
-  # nu cadă din wizard.
-  if ! command -v cortextos >/dev/null 2>&1; then
-    nova_warn "cortextOS instalat dar 'cortextos' nu e încă pe PATH."
-    nova_dim "Cauză probabilă: npm link are nevoie de sudo când npm prefix=/usr."
-    CORTEXTOS_DIR="${CORTEXTOS_DIR:-$HOME/cortextos}"
-    if [[ -d "$CORTEXTOS_DIR" ]]; then
-      nova_say "Re-link cu sudo (s-ar putea să-ți ceară parola Linux)..."
-      (cd "$CORTEXTOS_DIR" && sudo npm link)
-      # `sudo npm link` poate scrie symlink-ul mid-shell; verifică direct și
-      # via command -v, pentru că command -v cache-uiește.
-      hash -r 2>/dev/null || true
-      if ! command -v cortextos >/dev/null 2>&1; then
-        nova_fail "cortextos tot lipsește de pe PATH după sudo npm link. Deschide un terminal nou și re-rulează; dacă tot eșuează, rulează manual: cd $CORTEXTOS_DIR && sudo npm link"
-      fi
-    else
-      nova_fail "Directorul de instalare cortextOS nu există la $CORTEXTOS_DIR. Re-rulează install-ul cortextOS: curl -fsSL https://raw.githubusercontent.com/danutmitrut/cortextos/main/install.mjs | CORTEXTOS_REPO='https://github.com/danutmitrut/cortextos.git' node"
-    fi
-  fi
-  nova_ok "Motorul cortextOS instalat și linkat"
-fi
-
-# ─── PM2 (manager de proces pentru daemon — cortextOS depinde de el) ──────
-# cortextOS install.mjs încearcă să instaleze PM2 via `npm install -g pm2` fără
-# sudo. Aceeași eroare EACCES ca npm link când npm prefix=/usr. Fără PM2,
-# `cortextos start <agent>` nu poate porni daemon-ul, deci sistemul nu intră
-# în online. Auto-instalează cu sudo dacă lipsește.
-nova_step "Verific PM2 (manager de proces pentru daemon)"
-if command -v pm2 >/dev/null 2>&1; then
-  nova_ok "PM2 deja instalat ($(pm2 --version 2>/dev/null | head -1))"
-else
-  nova_say "PM2 lipsește — îl instalez global cu sudo..."
-  nova_dim "PM2 ține agenții tăi vii 24/7. S-ar putea să-ți ceară parola Linux."
-  sudo npm install -g pm2
-  hash -r 2>/dev/null || true
-  if ! command -v pm2 >/dev/null 2>&1; then
-    nova_fail "Instalarea PM2 cu sudo a eșuat. Rulează manual: sudo npm install -g pm2"
-  fi
-  nova_ok "PM2 instalat ($(pm2 --version 2>/dev/null | head -1))"
-fi
-
 # ─── Python venv (Knowledge Base RAG depinde de el) ───────────────────────
 # cortextOS bootstraps un venv Python în install.mjs pentru ChromaDB / RAG. Pe
 # Debian/Ubuntu, modulul venv vine ca pachet apt separat (python3-venv sau
@@ -341,8 +312,8 @@ if [[ "$NOVA_AGENT_RUNTIME" == "codex" ]]; then
 else
   echo "  Claude Code:    $(claude --version 2>/dev/null | head -1 || echo 'instalat')"
 fi
-echo "  cortextOS:      $(cortextos --version 2>/dev/null | head -1 || echo 'instalat')"
-echo "  PM2:            $(pm2 --version 2>/dev/null | head -1 || echo 'instalat')"
+echo "  cortextOS:      revizie și build verificate de helper"
+echo "  PM2:            disponibil; manager neinvocat pentru versiune"
 echo "  jq:             $(jq --version)"
 echo ""
 if [[ "$NOVA_AGENT_RUNTIME" == "codex" ]]; then
