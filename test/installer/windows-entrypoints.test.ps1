@@ -17,8 +17,14 @@ try {
   $vsExe = Join-Path $sandbox 'vswhere.exe'
   & $csc /nologo /target:exe "/out:$vsExe" $source
   Assert-True ($LASTEXITCODE -eq 0) 'Could not compile isolated vswhere fixture.'
+  $caWriter = Join-Path $sandbox 'ca-fixture.mjs'
+  "import { writeFileSync } from 'node:fs'; import { rootCertificates } from 'node:tls'; writeFileSync(process.argv[2], rootCertificates[0]);" | Set-Content $caWriter -Encoding UTF8
+  $fixtureCA = Join-Path $sandbox 'fixture-ca.pem'
+  & $nodeExe $caWriter $fixtureCA
+  Assert-True ($LASTEXITCODE -eq 0) 'Could not create isolated CA fixture.'
+  foreach ($presence in @('present','absent')) {
   foreach ($case in @('prepare', 'check', 'start', 'save', 'unhealthy', 'success', 'prereq')) {
-    $root = Join-Path $sandbox $case
+    $root = Join-Path $sandbox "$case-$presence"
     $repo = Join-Path $root 'repo with spaces'
     $user = Join-Path $root 'user'
     $bin = Join-Path $root 'bin with spaces'
@@ -27,6 +33,8 @@ try {
     foreach ($dir in @($repo, $bin, $user, "$user\.codex", "$user\.claude", "$engine\templates", "$repo\scripts", $vsDir, "$root\vs")) { New-Item -ItemType Directory $dir -Force | Out-Null }
     Copy-Item $vsExe (Join-Path $vsDir 'vswhere.exe')
     foreach ($name in @('nova-init.ps1', 'nova-prereq.ps1', 'templates', 'slack-bridge')) { Copy-Item (Join-Path $repoSource $name) $repo -Recurse }
+    New-Item -ItemType Directory "$repo\scripts\installer" | Out-Null
+    Copy-Item (Join-Path $repoSource 'scripts\installer\slack-status.mjs') "$repo\scripts\installer\slack-status.mjs"
     '{}' | Set-Content "$user\.codex\auth.json"
     '{}' | Set-Content "$user\.claude\.credentials.json"
     $events = Join-Path $root 'events'
@@ -36,7 +44,7 @@ try {
     foreach ($tool in @('npm', 'pm2', 'cortextos', 'codex', 'claude', 'jq', 'python', 'python3', 'winget')) {
       $body = "@echo off`r`necho $tool`:%*>>`"%EVENTS%`"`r`n"
       if ($tool -eq 'cortextos') { $body += "if `"%1`"==`"init`" mkdir `"%CORTEXTOS_DIR%\orgs\%2\agents\boss`"`r`nif `"%1`"==`"init`" echo # fixture>`"%CORTEXTOS_DIR%\orgs\%2\agents\boss\.env`"`r`n" }
-      elseif ($tool -eq 'pm2') { $body += 'if "%1"=="jlist" echo [{"name":"nova-slack-bridge","pm2_env":{"status":"%BRIDGE_STATUS%"}}]' + "`r`n" }
+      elseif ($tool -eq 'pm2') { $body += 'if "%1"=="jlist" echo [{"name":"nova-slack-bridge","pm2_env":{"status":"%BRIDGE_STATUS%","username":"student","USERNAME":"student","env":{"USERNAME":"student","SLACK_BOT_TOKEN":"secret-sentinel"}}}]' + "`r`n" }
       elseif ($tool -in @('python','python3')) { $body += "echo 3`r`n" }
       else { $body += "echo fixture`r`n" }
       $body += "exit /b 0`r`n"
@@ -52,7 +60,21 @@ process.exit(process.argv[2] === process.env.FAIL_PHASE ? 9 : 0);
     $p = New-Object Diagnostics.ProcessStartInfo
     $p.FileName = $PowerShellExe
     $script = if ($case -eq 'prereq') { 'nova-prereq.ps1' } else { 'nova-init.ps1' }
-    $p.Arguments = "-NoProfile -File `"$repo\$script`""
+    $wrapper = Join-Path $root 'observe-environment.ps1'
+    @'
+$ErrorActionPreference = 'Stop'
+$keys = @('NOVA_AGENT_RUNTIME','CTX_FRAMEWORK_ROOT','CTX_ROOT','CTX_PROJECT_ROOT','CTX_INSTANCE_ID','NODE_EXTRA_CA_CERTS','CORTEXTOS_REPO','Path')
+$before = @{}
+foreach ($key in $keys) { $before[$key] = [Environment]::GetEnvironmentVariable($key, 'Process') }
+& $env:FIXTURE_ENTRYPOINT
+$result = $LASTEXITCODE
+foreach ($key in $keys) {
+  if ([Environment]::GetEnvironmentVariable($key, 'Process') -cne $before[$key]) { throw ('Environment not restored: ' + $key) }
+}
+Write-Output 'ENVIRONMENT-RESTORED'
+exit $result
+'@ | Set-Content $wrapper -Encoding UTF8
+    $p.Arguments = "-NoProfile -File `"$wrapper`""
     $p.WorkingDirectory = $root
     $p.UseShellExecute = $false
     $p.RedirectStandardInput = $true
@@ -61,12 +83,18 @@ process.exit(process.argv[2] === process.env.FAIL_PHASE ? 9 : 0);
     $p.EnvironmentVariables['PATH'] = "$bin;$env:SystemRoot\System32;$PSHOME"
     foreach ($key in @('HOME','USERPROFILE','APPDATA','LOCALAPPDATA','TEMP','TMP')) { $p.EnvironmentVariables[$key] = $user }
     foreach ($key in @('CORTEXTOS_REPO','CTX_ROOT','CTX_FRAMEWORK_ROOT','CTX_PROJECT_ROOT','CTX_INSTANCE_ID','NODE_EXTRA_CA_CERTS','NODE_OPTIONS')) { $p.EnvironmentVariables.Remove($key) }
+    if ($presence -eq 'present') {
+      foreach ($key in @('CORTEXTOS_REPO','CTX_ROOT','CTX_FRAMEWORK_ROOT','CTX_PROJECT_ROOT','CTX_INSTANCE_ID')) { $p.EnvironmentVariables[$key] = "sentinel-$key" }
+      $p.EnvironmentVariables['NODE_EXTRA_CA_CERTS'] = $fixtureCA
+    }
+    $p.EnvironmentVariables['FIXTURE_ENTRYPOINT'] = "$repo\$script"
     $p.EnvironmentVariables['PM2_HOME'] = "$user\.pm2"
     $p.EnvironmentVariables['CORTEXTOS_DIR'] = $engine
     $p.EnvironmentVariables['EVENTS'] = $events
     $p.EnvironmentVariables['FAIL_PHASE'] = $(if ($case -eq 'prereq') { 'prepare' } else { $case })
     $p.EnvironmentVariables['BRIDGE_STATUS'] = $(if ($case -eq 'unhealthy') { 'errored' } else { 'online' })
-    $p.EnvironmentVariables['NOVA_AGENT_RUNTIME'] = 'codex'
+    if ($presence -eq 'present') { $p.EnvironmentVariables['NOVA_AGENT_RUNTIME'] = 'codex' }
+    else { $p.EnvironmentVariables.Remove('NOVA_AGENT_RUNTIME') }
     $p.EnvironmentVariables['ProgramFiles(x86)'] = "$root\program files"
     $p.EnvironmentVariables['FIXTURE_VS'] = "$root\vs"
     $child = [Diagnostics.Process]::Start($p)
@@ -76,6 +104,8 @@ process.exit(process.argv[2] === process.env.FAIL_PHASE ? 9 : 0);
     $child.StandardInput.Close()
     if (-not $child.WaitForExit(30000)) { $child.Kill(); throw "Harness timeout: $case" }
     $output = $stdoutTask.Result + $stderrTask.Result
+    Assert-True ($output -match 'ENVIRONMENT-RESTORED') "Environment restoration failed: $case/$presence`n$output"
+    Assert-True ($output -notmatch 'secret-sentinel') 'Raw PM2 environment leaked.'
     $log = @(Get-Content $events)
     Assert-True (@($log | Where-Object { $_ -eq 'engine:prepare' }).Count -eq 1) "prepare bypassed: $case`n$output"
     Assert-True ($log -notcontains 'pm2:--version') 'PM2 version invoked before runtime preflight.'
@@ -93,7 +123,8 @@ process.exit(process.argv[2] === process.env.FAIL_PHASE ? 9 : 0);
     if ($case -eq 'save') { Assert-True ($log -contains 'engine:save') 'Missing guarded save.'; Assert-True ($output -match 'VISIBLE-CONSENT-save') 'Hidden save consent.' }
     if ($case -eq 'unhealthy') { Assert-True ($log -notcontains 'engine:save') 'Unhealthy bridge reached save.' }
     Assert-True ($log -notcontains 'pm2:save') 'Unguarded global PM2 save.'
-    Write-Host "PASS native Windows case: $case"
+    Write-Host "PASS native Windows case: $case/$presence"
+  }
   }
 } finally {
   Remove-Item -LiteralPath $sandbox -Recurse -Force

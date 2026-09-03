@@ -6,6 +6,7 @@ import { InstallError, run, resolveNodeTool, samePath } from './system.mjs';
 import { validateCA, validateEnvironment, probeTLS } from './tls.mjs';
 import { requestIPC } from './ipc.mjs';
 import { verifyEngine } from './engine.mjs';
+import { phaseOutcome } from './outcome.mjs';
 const fail = code => {
     throw new InstallError(code, code);
 };
@@ -59,7 +60,10 @@ function context(options = {}, adapters = {}) {
 }
 function select(record) {
     const e = record.pm2_env ?? record;
-    validateEnvironment(e);
+    // PM2 adds lowercase username metadata alongside Windows USERNAME.
+    // Exclude only that metadata; actual nested environment remains strict.
+    const { username, ...flatEnvironment } = e;
+    validateEnvironment(flatEnvironment);
     const nested = e.env ?? {};
     validateEnvironment(nested);
     for (const key of ['CTX_INSTANCE_ID', 'CTX_ROOT', 'CTX_FRAMEWORK_ROOT', 'CTX_PROJECT_ROOT', 'NODE_EXTRA_CA_CERTS', 'NODE_TLS_REJECT_UNAUTHORIZED', 'PM2_HOME']) {
@@ -67,7 +71,7 @@ function select(record) {
             fail('PM2_ENV_CONFLICT');
         }
     }
-    const effective = { ...e, ...nested };
+    const effective = { ...flatEnvironment, ...nested };
     validateEnvironment(effective);
     return {
         id: record.pm_id ?? e.pm_id, name: record.name ?? e.name,
@@ -76,7 +80,7 @@ function select(record) {
         instance: effective.CTX_INSTANCE_ID, stateRoot: effective.CTX_ROOT,
         frameworkRoot: effective.CTX_FRAMEWORK_ROOT, projectRoot: effective.CTX_PROJECT_ROOT,
         extraCA: effective.NODE_EXTRA_CA_CERTS ?? null, pm2Home: effective.PM2_HOME,
-        username: e.username, restarts: e.restart_time, startedAt: e.pm_uptime,
+        username, restarts: e.restart_time, startedAt: e.pm_uptime,
         stdoutPath: e.pm_out_log_path, stderrPath: e.pm_err_log_path,
     };
 }
@@ -300,7 +304,7 @@ async function health(c, adapters, { logs, requireBootstrap = false } = {}) {
 export async function guardedSave(options, adapters = {}) {
     const c = context(options, adapters);
     validateCA(c.env);
-    await (adapters.verifyEngine ?? verifyEngine)(c, { ...adapters, inspectRuntime });
+    const receipt = await (adapters.verifyEngine ?? verifyEngine)(c, { ...adapters, inspectRuntime });
     const first = await health(c, adapters);
     if (c.confirmedSnapshot && signature(c.confirmedSnapshot) !== signature(first)) {
         fail('PM2_PROCESS_SET_CHANGED');
@@ -330,7 +334,7 @@ export async function guardedSave(options, adapters = {}) {
     if (saved[0].extraCA !== (c.env.NODE_EXTRA_CA_CERTS ?? null)) {
         fail('PM2_SAVE_INVALID');
     }
-    return { saved: true, autoStartVerified: false };
+    return { saved: true, autoStartVerified: false, outcome: phaseOutcome(c, receipt, { runtime: true }) };
 }
 /** Revalidate receipt, then mutate only the identified daemon with explicit consent. */
 export async function ensureRuntime(options, adapters = {}) {

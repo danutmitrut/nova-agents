@@ -6,6 +6,17 @@ import { entrypointFixture } from './entrypoint-fixtures.mjs';
 
 const slack = ['1', '2', 'tester', 'xoxb-fixture', 'xapp-fixture', 'C123', 'U123'];
 describe('Bash entrypoints', { skip: process.platform === 'win32' ? 'Bash route is POSIX-only; run native Windows harness below.' : false }, () => {
+for (const present of [true, false]) for (const failPhase of ['', 'prepare', 'start']) {
+  test(`caller environment ${present ? 'sentinels' : 'absence'} preserved after ${failPhase || 'success'}`, t => {
+    const f = entrypointFixture(t, { failPhase, sentinelEnvironment: present });
+    const r = f.runBash('nova-init.sh', slack);
+    assert.equal(r.status === 0, failPhase === '', r.stdout + r.stderr);
+    const [before, after] = f.environmentSnapshots();
+    assert.deepEqual(after, before);
+    assert.equal(before.CTX_FRAMEWORK_ROOT, present ? 'sentinel-CTX_FRAMEWORK_ROOT' : null);
+    assert.equal(before.CORTEXTOS_REPO, present ? 'sentinel-CORTEXTOS_REPO' : null);
+  });
+}
 for (const script of ['nova-prereq.sh', 'nova-init.sh']) {
   test(`${script}: existing cortextos cannot bypass failed prepare`, t => {
     const f = entrypointFixture(t);

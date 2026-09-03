@@ -2,8 +2,9 @@ import { existsSync, mkdtempSync, mkdirSync, cpSync, writeFileSync, readFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { rootCertificates } from 'node:tls';
 
-export function entrypointFixture(t, { failPhase = 'prepare', runtime = 'codex', bridgeOnline = true } = {}) {
+export function entrypointFixture(t, { failPhase = 'prepare', runtime = 'codex', bridgeOnline = true, sentinelEnvironment = false } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'nova entrypoints '));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const repo = join(root, 'repo with spaces'), home = join(root, 'home'), bin = join(root, 'bin');
@@ -25,5 +26,15 @@ export function entrypointFixture(t, { failPhase = 'prepare', runtime = 'codex',
   symlinkSync(process.execPath, join(bin, 'node'));
   writeFileSync(join(repo, 'scripts/nova-engine.mjs'), `import { appendFileSync } from 'node:fs';\nappendFileSync(process.env.EVENTS, 'engine:' + process.argv.slice(2).join(' ') + '\\n');\nconsole.log('VISIBLE-CONSENT-' + process.argv[2]);\nprocess.exit(process.argv[2] === process.env.FAIL_PHASE ? 9 : 0);\n`);
   const env = { PATH: bin, HOME: home, CORTEXTOS_DIR: engineRoot, EVENTS: eventsPath, FAIL_PHASE: failPhase, NOVA_AGENT_RUNTIME: runtime, TERM: 'dumb' };
-  return { root, repo, home, engineRoot, events: () => readFileSync(eventsPath, 'utf8').trim().split('\n'), runBash: (script, input = []) => spawnSync('/bin/bash', [join(repo, script)], { cwd: root, env: { ...env, ...(script === 'nova-init.sh' ? { NOVA_AGENT_RUNTIME: '' } : {}) }, input: input.join('\n') + '\n', encoding: 'utf8', timeout: 15000 }) };
+  const keys = ['NOVA_AGENT_RUNTIME', 'CTX_FRAMEWORK_ROOT', 'CTX_ROOT', 'CTX_PROJECT_ROOT', 'CTX_INSTANCE_ID', 'NODE_EXTRA_CA_CERTS', 'CORTEXTOS_REPO', 'PATH'];
+  if (sentinelEnvironment) {
+    for (const key of keys) if (!['PATH', 'NODE_EXTRA_CA_CERTS'].includes(key)) env[key] = 'sentinel-' + key;
+    env.NODE_EXTRA_CA_CERTS = join(root, 'fixture-ca.pem');
+    writeFileSync(env.NODE_EXTRA_CA_CERTS, rootCertificates[0]);
+    env.NOVA_AGENT_RUNTIME = runtime;
+  }
+  const snapshots = join(root, 'environment.jsonl');
+  const probe = join(root, 'probe.mjs');
+  writeFileSync(probe, `import { appendFileSync } from 'node:fs'; appendFileSync(${JSON.stringify(snapshots)}, JSON.stringify(Object.fromEntries(${JSON.stringify(keys)}.map(k => [k, process.env[k] ?? null]))) + '\\n');`);
+  return { root, repo, home, engineRoot, environmentSnapshots: () => readFileSync(snapshots, 'utf8').trim().split('\n').map(JSON.parse), events: () => readFileSync(eventsPath, 'utf8').trim().split('\n'), runBash: (script, input = []) => spawnSync('/bin/bash', ['-c', 'node "$2"; bash "$1"; result=$?; node "$2"; exit "$result"', 'fixture', join(repo, script), probe], { cwd: root, env: { ...env, ...(script === 'nova-init.sh' ? { NOVA_AGENT_RUNTIME: '' } : {}) }, input: input.join('\n') + '\n', encoding: 'utf8', timeout: 15000 }) };
 }

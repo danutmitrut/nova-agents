@@ -5,6 +5,9 @@ import { prepareEngine, verifyEngine } from './installer/engine.mjs';
 import { InstallError } from './installer/system.mjs';
 import { inspectRuntime, ensureRuntime, guardedSave } from './installer/pm2.mjs';
 import { createInterface } from 'node:readline/promises';
+import { resolve, join } from 'node:path';
+import { homedir } from 'node:os';
+import { phaseOutcome, printOutcome } from './installer/outcome.mjs';
 async function confirm(prompt) {
     if (!process.stdin.isTTY || !process.stdout.isTTY) {
         return false;
@@ -22,6 +25,7 @@ async function confirm(prompt) {
 }
 /** Uses only the bundled release; runtime inspection is wired by Task 3 integration. */
 export async function main(args = process.argv.slice(2), adapters = {}) {
+    const pending = phaseOutcome({ root: resolve(process.env.CORTEXTOS_DIR ?? join(homedir(), 'cortextos')), env: process.env }, null, { build: 'not-verified' });
     try {
         const command = args[0];
         const validStart = command === 'start' && args.length === 5 && args[1] === '--org' && /^[a-zA-Z0-9_-]+$/.test(args[2]) && args[3] === '--channel' && ['telegram', 'slack'].includes(args[4]);
@@ -29,6 +33,7 @@ export async function main(args = process.argv.slice(2), adapters = {}) {
             throw new InstallError('ARGUMENTE_INVALIDE', 'ARGUMENTE_INVALIDE');
         }
         const release = JSON.parse(readFileSync(new URL('./installer/engine-release.json', import.meta.url), 'utf8'));
+        pending.requestedSha = release.sha;
         const runtimeAdapters = { inspectRuntime, ...adapters };
         if (command === 'start' || command === 'save') {
             const options = { release, env: process.env, org: args[2], channel: args[4] };
@@ -46,12 +51,12 @@ export async function main(args = process.argv.slice(2), adapters = {}) {
                 }
             }
             options.confirmedSnapshot = snapshot;
-            await (command === 'start' ? (adapters.ensureRuntime ?? ensureRuntime) : (adapters.guardedSave ?? guardedSave))(options, runtimeAdapters);
-            process.stdout.write('Salvat pentru restaurare; pornirea automată Windows nu este verificată.\n');
+            const result = await (command === 'start' ? (adapters.ensureRuntime ?? ensureRuntime) : (adapters.guardedSave ?? guardedSave))(options, runtimeAdapters);
+            printOutcome(result?.outcome ?? pending);
             return 0;
         }
         const receipt = await (command === 'prepare' ? prepareEngine : verifyEngine)({ release, env: process.env }, runtimeAdapters);
-        process.stdout.write(`Engine verificat: ${receipt.sha}\n`);
+        printOutcome(receipt.outcome);
         if (args[0] === 'prepare') {
             process.stdout.write('Procesele existente nu au fost repornite. KB, voce și dashboard: configurare opțională separată.\n');
         }
@@ -59,6 +64,7 @@ export async function main(args = process.argv.slice(2), adapters = {}) {
     }
     catch (error) {
         process.stderr.write(`Oprit: ${error instanceof InstallError ? error.message : 'EROARE_INSTALARE'}\n`);
+        printOutcome(error.outcome ?? { ...pending, saveReason: 'operation-refused-or-incomplete' }, text => process.stderr.write(text));
         if (error.sourceSha) {
             process.stderr.write(`Sursă: ${error.sourceSha}; ultima compilare reușită: ${error.lastSuccessfulSha ?? 'lipsește'}\n`);
         }

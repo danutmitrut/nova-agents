@@ -3,6 +3,7 @@ import { join, resolve, dirname, relative } from 'node:path';
 import { homedir } from 'node:os';
 import { createHash, randomBytes } from 'node:crypto';
 import * as system from './system.mjs';
+import { phaseOutcome } from './outcome.mjs';
 const fail = (code, paths = []) => new system.InstallError(code, `${code}${paths.length ? ': ' + paths.map(p => JSON.stringify(p)).join(', ') : ''}`);
 function context(options, adapters) {
   const env = options.env ?? process.env;
@@ -288,11 +289,12 @@ export async function prepareEngine(options, adapters = {}) {
     const temporary = path + '.' + randomBytes(8).toString('hex') + '.tmp';
     writeFileSync(temporary, JSON.stringify(receipt, null, 2) + '\n', { flag: 'wx', mode: 0o600 });
     renameSync(temporary, path);
-    return receipt;
+    return { ...receipt, outcome: phaseOutcome(c, receipt) };
   } catch (error) {
     const safe = error instanceof system.InstallError ? error : fail('PREPARE_FAILED');
     safe.sourceSha = sourceSha;
     safe.lastSuccessfulSha = last?.sha ?? null;
+    safe.outcome = phaseOutcome(c, { sha: sourceSha }, { build: 'failed' });
     throw safe;
   }
 }
@@ -314,5 +316,5 @@ export async function verifyEngine(options, adapters = {}) {
     throw fail('ARTIFACT_MISMATCH');
   }
   link(c, true);
-  return receipt;
+  return { ...receipt, outcome: phaseOutcome(c, receipt) };
 }

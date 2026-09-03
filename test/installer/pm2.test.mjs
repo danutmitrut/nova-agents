@@ -5,6 +5,26 @@ import { tmpdir, userInfo } from 'node:os';
 import { join } from 'node:path';
 import { rootCertificates } from 'node:tls';
 const mod = await import('../../scripts/installer/pm2.mjs').catch(() => ({}));
+for (const empty of [false, true]) {
+    test(`Windows username metadata survives ${empty ? 'fresh start' : 'existing jlist and dump'} through guarded save`, async t => {
+        const f = fixture(t, { empty, dump: !empty, record: { USERNAME: userInfo().username, env: { USERNAME: userInfo().username } } });
+        if (empty) mkdirSync(join(f.stateRoot, 'logs'));
+        const result = await mod.ensureRuntime(f.options, f.adapters);
+        assert.equal(result.saved, true);
+        assert.deepEqual(f.mutations.map(x => x.operation), [empty ? 'start' : 'restart', 'save']);
+    });
+}
+for (const record of [
+    { NODE_EXTRA_CA_CERTS: '/one', node_extra_ca_certs: '/one' },
+    { env: { USERNAME: 'student', username: 'student' } },
+    { env: { node_extra_ca_certs: '/one' } },
+]) {
+    test('metadata exception does not hide actual environment case conflicts ' + JSON.stringify(record), async t => {
+        const f = fixture(t, { record });
+        await assert.rejects(mod.ensureRuntime(f.options, f.adapters), { code: 'ENV_CASE_CONFLICT' });
+        assert.deepEqual(f.mutations, []);
+    });
+}
 test('readiness cannot save after its total deadline has elapsed',async t=>{
     const f=fixture(t);let elapsed=0,restarted=false;
     const original=f.adapters.run;
@@ -116,8 +136,18 @@ function fixture(t, change = {}) {
 test('consented targeted restart installs approved CA and exact Node before one save', async (t) => { assert.equal(typeof mod.ensureRuntime, 'function'); const f = fixture(t); await mod.ensureRuntime(f.options, f.adapters); assert.deepEqual(f.mutations.map(x => x.operation), ['restart', 'save']); assert.equal(f.mutations[0].target, 0); assert.equal(f.mutations[0].env.NODE_EXTRA_CA_CERTS, f.ca); });
 test('persistent PM2 dump without live pm_id validates successfully', async t => {
     const f = fixture(t);
+    f.options.release = { sha: 'a'.repeat(40) };
+    f.adapters.verifyEngine = async () => ({ root: f.options.root, sha: 'a'.repeat(40) });
     f.base.pm2_env.exec_interpreter = process.execPath;
-    assert.deepEqual(await mod.guardedSave(f.options, f.adapters), { saved: true, autoStartVerified: false });
+    const result = await mod.guardedSave(f.options, f.adapters);
+    assert.equal(result.saved, true);
+    assert.equal(result.autoStartVerified, false);
+    assert.deepEqual(result.outcome, {
+        root: f.options.root, requestedSha: 'a'.repeat(40), sourceSha: 'a'.repeat(40),
+        build: 'verified', ca: 'validated-propagated', daemon: 'verified-online',
+        boss: 'verified-running', saved: true, saveReason: null,
+        autoStartVerified: false, channelRoundtripVerified: false,
+    });
     assert.deepEqual(f.mutations.map(x => x.operation), ['save']);
 });
 test('Boss becoming stopped during final health read cancels save', async t => {

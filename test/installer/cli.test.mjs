@@ -1,6 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { main } from '../../scripts/nova-engine.mjs';
+test('CLI prints allowlisted phase evidence without leaking adapter/environment fields', async () => {
+    const output = [];
+    const original = process.stdout.write;
+    process.stdout.write = text => { output.push(text); return true; };
+    try {
+        assert.equal(await main(['save'], {
+            inspectRuntime: async () => ({ selected: { id: 0 }, processes: [{}] }),
+            guardedSave: async () => ({ saved: true, outcome: {
+                root: '/selected engine', requestedSha: 'a'.repeat(40), sourceSha: 'b'.repeat(40),
+                build: 'verified', ca: 'validated-propagated', daemon: 'verified-online', boss: 'verified-running',
+                saved: true, saveReason: null, rawEnv: { TOKEN: 'secret-sentinel' },
+            } }),
+        }), 0);
+    } finally { process.stdout.write = original; }
+    const text = output.join('');
+    for (const value of ['/selected engine', 'a'.repeat(40), 'b'.repeat(40), 'verified', 'validated-propagated', 'verified-online', 'verified-running']) assert.ok(text.includes(value), text);
+    assert.doesNotMatch(text, /secret-sentinel|TOKEN|rawEnv/);
+    assert.match(text, /Telegram.*neverificat/);
+});
 test('fresh start asks global consent when one unrelated app already exists', async () => {
     let prompted = false;
     const result = await main(['start', '--org', 'test', '--channel', 'telegram'], {

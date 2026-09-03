@@ -40,6 +40,32 @@ function fixture(t) {
   return f;
 }
 test('engine public preparation contract exists',()=>assert.equal(typeof engine.prepareEngine,'function'));
+test('build outcomes distinguish verified source from runtime not yet checked', async t => {
+  const f = fixture(t);
+  f.env.NODE_EXTRA_CA_CERTS = '/configured-but-not-validated-here.pem';
+  const receipt = await f.prepare();
+  assert.deepEqual(receipt.outcome, {
+    root: receipt.root, requestedSha: f.newSha, sourceSha: f.newSha,
+    build: 'verified', ca: 'configured-not-validated', daemon: 'restart-pending',
+    boss: 'not-verified', saved: false, saveReason: 'runtime-not-verified',
+    autoStartVerified: false, channelRoundtripVerified: false,
+  });
+  assert.deepEqual((await f.verify()).outcome, receipt.outcome);
+});
+test('build failure outcome never labels the updated source as a verified build', async t => {
+  const f = fixture(t);
+  const original = f.adapters.run;
+  f.adapters.run = (command, args, options) => {
+    if (args.includes('ci')) throw Error('secret');
+    return original(command, args, options);
+  };
+  await assert.rejects(f.prepare(), error => {
+    assert.equal(error.outcome?.sourceSha, f.newSha);
+    assert.equal(error.outcome?.build, 'failed');
+    assert.equal(error.outcome?.saved, false);
+    return error.code === 'BUILD_FAILED';
+  });
+});
 test('stale engine fast forwards, builds accepted artifact and read-only check accepts later untracked template',async t=>{
   const f=fixture(t); const receipt=await f.prepare();
   assert.equal(f.git(['rev-parse','HEAD']).stdout.trim(),f.newSha);

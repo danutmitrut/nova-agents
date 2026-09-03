@@ -362,9 +362,10 @@ SLACK_MAX_FILE_BYTES=104857600
       # Keep raw environments in memory only; never emit PM2 JSON to the console.
       $bridgeJson = & $Pm2Cmd jlist
       if ($LASTEXITCODE -ne 0) { Nova-Fail 'Starea Slack bridge nu poate fi verificată; snapshot nesalvat.' }
-      try { $bridgeProcesses = @($bridgeJson | ConvertFrom-Json | Where-Object { $_.name -eq 'nova-slack-bridge' }) }
-      catch { Nova-Fail 'Stare PM2 invalidă; snapshot nesalvat.' }
-      if ($bridgeProcesses.Count -ne 1 -or $bridgeProcesses[0].pm2_env.status -ne 'online') { Nova-Fail 'Slack bridge nu este online; snapshot nesalvat.' }
+      # Windows PowerShell 5.1 cannot parse username/USERNAME pairs. Node
+      # selects and validates in memory, returning only a constant status.
+      $bridgeStatus = $bridgeJson | & node (Join-Path $PSScriptRoot 'scripts/installer/slack-status.mjs')
+      if ($LASTEXITCODE -ne 0 -or $bridgeStatus -ne 'online') { Nova-Fail 'Slack bridge nu este online; snapshot nesalvat.' }
       $bridgeJson = $null
       & node (Join-Path $PSScriptRoot 'scripts\nova-engine.mjs') save
       if ($LASTEXITCODE -ne 0) { Nova-Fail 'Snapshot PM2 nesalvat; verificarea sau acordul necesar a eșuat.' }
