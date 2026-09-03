@@ -99,7 +99,14 @@ function daemon(p) {
     return p.name?.startsWith('cortextos') || p.script?.replaceAll('\\', '/').endsWith('/dist/daemon.js');
 }
 function identity(p, c, { exactNode = false } = {}) {
-    if (!Number.isInteger(p.id) || p.id < 0 || p.instance !== 'default') {
+    if (!Number.isInteger(p.id) || p.id < 0) {
+        fail('PM2_IDENTITY_MISMATCH');
+    }
+    persistentIdentity(p, c, { exactNode });
+}
+/** PM2 removes live-only pm_id when saving; persistent identity excludes it. */
+function persistentIdentity(p, c, { exactNode = true } = {}) {
+    if (p.instance !== 'default') {
         fail('PM2_IDENTITY_MISMATCH');
     }
     const expectedPaths = [
@@ -116,10 +123,13 @@ function identity(p, c, { exactNode = false } = {}) {
     if (!unresolvedLegacyNode && (!p.node || !isAbsolute(p.node) || !samePath(p.node, c.tool.node))) {
         fail('PM2_IDENTITY_MISMATCH');
     }
-    if (p.pm2Home && !samePath(p.pm2Home, c.pm2Home)) {
+    if (typeof p.pm2Home !== 'string' || !isAbsolute(p.pm2Home) || typeof p.username !== 'string' || !p.username.trim()) {
+        fail('PM2_RECOVERY_REQUIRED');
+    }
+    if (!samePath(p.pm2Home, c.pm2Home)) {
         fail('PM2_HOME_MISMATCH');
     }
-    if (p.username && p.username !== userInfo().username) {
+    if (p.username !== userInfo().username) {
         fail('PM2_USER_MISMATCH');
     }
 }
@@ -305,6 +315,9 @@ export async function guardedSave(options, adapters = {}) {
         fail('PM2_PROCESS_SET_CHANGED');
     }
     const second = await health(c, adapters);
+    if (!second.boss) {
+        fail('BOSS_NOT_RUNNING');
+    }
     if (signature(first) !== signature(second)) {
         fail('PM2_PROCESS_SET_CHANGED');
     }
@@ -313,7 +326,7 @@ export async function guardedSave(options, adapters = {}) {
     if (saved.length !== 1) {
         fail('PM2_SAVE_INVALID');
     }
-    identity(saved[0], c, { exactNode: true });
+    persistentIdentity(saved[0], c);
     if (saved[0].extraCA !== (c.env.NODE_EXTRA_CA_CERTS ?? null)) {
         fail('PM2_SAVE_INVALID');
     }

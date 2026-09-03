@@ -99,7 +99,14 @@ function fixture(t, change = {}) {
             }
             if (op === 'save') {
                 mutations.push({ operation: op });
-                writeFileSync(join(home, 'dump.pm2'), JSON.stringify(processes.map(p => ({ ...p.pm2_env, pm_id: p.pm_id, name: p.name }))));
+                const saved = processes.map(p => {
+                    const env = { ...p.pm2_env };
+                    delete env.pm_id;
+                    delete env.instances;
+                    delete env.prev_restart_delay;
+                    return env;
+                });
+                writeFileSync(join(home, 'dump.pm2'), JSON.stringify(saved));
                 return { stdout: '' };
             }
             throw Error('unexpected operation ' + op);
@@ -107,6 +114,31 @@ function fixture(t, change = {}) {
     return { options: { root, stateRoot, instance: 'default', env, org: 'test', channel: 'telegram', allowRestart: true, allowGlobalSave: true }, adapters, mutations, base, home, ca, stateRoot };
 }
 test('consented targeted restart installs approved CA and exact Node before one save', async (t) => { assert.equal(typeof mod.ensureRuntime, 'function'); const f = fixture(t); await mod.ensureRuntime(f.options, f.adapters); assert.deepEqual(f.mutations.map(x => x.operation), ['restart', 'save']); assert.equal(f.mutations[0].target, 0); assert.equal(f.mutations[0].env.NODE_EXTRA_CA_CERTS, f.ca); });
+test('persistent PM2 dump without live pm_id validates successfully', async t => {
+    const f = fixture(t);
+    f.base.pm2_env.exec_interpreter = process.execPath;
+    assert.deepEqual(await mod.guardedSave(f.options, f.adapters), { saved: true, autoStartVerified: false });
+    assert.deepEqual(f.mutations.map(x => x.operation), ['save']);
+});
+test('Boss becoming stopped during final health read cancels save', async t => {
+    const f = fixture(t);
+    f.base.pm2_env.exec_interpreter = process.execPath;
+    let reads = 0;
+    f.adapters.requestIPC = async () => ({ success: true, data: [{ name: 'boss', status: ++reads === 1 ? 'running' : 'stopped', pid: 303 }] });
+    await assert.rejects(mod.guardedSave(f.options, f.adapters), { code: 'BOSS_NOT_RUNNING' });
+    assert.deepEqual(f.mutations, []);
+});
+for (const field of ['username', 'PM2_HOME']) {
+    for (const action of ['ensureRuntime', 'guardedSave']) {
+        test(`${action} refuses missing authoritative ${field}`, async t => {
+            const f = fixture(t);
+            f.base.pm2_env.exec_interpreter = process.execPath;
+            delete f.base.pm2_env[field];
+            await assert.rejects(mod[action](f.options, f.adapters), { code: 'PM2_RECOVERY_REQUIRED' });
+            assert.deepEqual(f.mutations, []);
+        });
+    }
+}
 for (const [name, change, options, code] of [
     ['dump without live daemon', { empty: true, dump: true }, {}, 'PM2_RECOVERY_REQUIRED'],
     ['ambiguous daemon', { ambiguous: true }, {}, 'PM2_AMBIGUOUS'],
@@ -140,7 +172,7 @@ test('unmanaged IPC and mismatched Windows PM2 pipe refuse without jlist', async
 } });
 test('standalone save revalidates receipt before any PM2 save', async (t) => { const f = fixture(t); f.base.pm2_env.exec_interpreter = process.execPath; f.adapters.verifyEngine = async () => { throw Object.assign(Error('bad receipt'), { code: 'BAD_RECEIPT' }); }; await assert.rejects(mod.guardedSave(f.options, f.adapters), { code: 'BAD_RECEIPT' }); assert.deepEqual(f.mutations, []); });
 test('saved healthy snapshot must retain exact daemon identity fields', async (t) => { const f = fixture(t); f.base.pm2_env.exec_interpreter = process.execPath; const original = f.adapters.run; f.adapters.run = (node, args, opts) => { const result = original(node, args, opts); if (args[1] === 'save') {
-    writeFileSync(join(f.home, 'dump.pm2'), JSON.stringify([{ ...f.base.pm2_env, pm_id: 0, CTX_ROOT: '/wrong' }]));
+    writeFileSync(join(f.home, 'dump.pm2'), JSON.stringify([{ ...f.base.pm2_env, CTX_ROOT: '/wrong' }]));
 } return result; }; await assert.rejects(mod.guardedSave(f.options, f.adapters), { code: 'PM2_IDENTITY_MISMATCH' }); });
 test('unrelated process change during restart invalidates global save consent', async (t) => { const f = fixture(t, { other: true }); const original = f.adapters.run; let restarted = false; f.adapters.run = (node, args, opts) => { const result = original(node, args, opts); if (args[1] === 'restart') {
     restarted = true;
