@@ -26,7 +26,7 @@ Pentru curs, instalarea are trei decizii:
 2. **Locatie:** local pentru test/dezvoltare sau server pentru agenti always-on.
 3. **Canal:** Telegram sau Slack.
 
-Ghidul complet este in [`docs/installation-options.md`](docs/installation-options.md). Pentru Slack, foloseste si [`docs/slack-onboarding.md`](docs/slack-onboarding.md). Pentru fallback intre Claude si Codex dupa instalare, vezi [`docs/runtime-fallback.md`](docs/runtime-fallback.md); pentru varianta explicata pentru cursanti, vezi [`docs/ghid-curs-fallback-claude-codex.md`](docs/ghid-curs-fallback-claude-codex.md). Pentru validarea pe Windows, foloseste [`docs/windows-test-plan.md`](docs/windows-test-plan.md). Pentru modelul de permisiuni al agentilor si aprobari pe Telegram, vezi [`docs/permisiuni-agenti.md`](docs/permisiuni-agenti.md).
+Ghidul complet este in [`docs/installation-options.md`](docs/installation-options.md). Pentru Slack, foloseste si [`docs/slack-onboarding.md`](docs/slack-onboarding.md). Pentru fallback intre Claude si Codex dupa instalare, vezi [`docs/runtime-fallback.md`](docs/runtime-fallback.md); pentru varianta explicata pentru cursanti, vezi [`docs/ghid-curs-fallback-claude-codex.md`](docs/ghid-curs-fallback-claude-codex.md). Pentru recuperarea controlata a engine-ului, vezi [`docs/safe-engine-installer.md`](docs/safe-engine-installer.md); pentru validarea pe Windows, foloseste [`docs/windows-test-plan.md`](docs/windows-test-plan.md). Pentru modelul de permisiuni al agentilor si aprobari pe Telegram, vezi [`docs/permisiuni-agenti.md`](docs/permisiuni-agenti.md).
 
 Pentru mentenanta repo-ului si debug pe instalari, vezi [`WORKFLOW.md`](WORKFLOW.md). Acolo este notata copia canonica de lucru si checklistul minim inainte de commit/push.
 
@@ -46,7 +46,7 @@ bash nova-init.sh
 # Open PowerShell as Administrator (required — see below)
 git clone https://github.com/danutmitrut/nova-agents.git
 cd nova-agents
-.\nova-prereq.ps1   # installs VS Build Tools + jq + Python + Node + Claude + cortextOS + PM2
+.\nova-prereq.ps1   # verifică/instalează toolchain-ul și pregătește engine-ul pin-uit
 .\nova-init.ps1     # wizard (can run from regular PowerShell after prereq passes)
 ```
 
@@ -56,7 +56,7 @@ cd nova-agents
 
 The Mac/Linux wizard will:
 1. Ask which runtime you want: Codex/OpenAI (recommended) or Claude Code.
-2. Run the prereq script — installs Node.js 20+, the selected AI CLI (`codex` or `claude`), cortextOS engine, PM2 (and Homebrew on Mac, `jq` on Linux).
+2. Run the prereq script — verifică/instalează Node.js 20+, runtime-ul ales (`codex` sau `claude`), PM2 (și Homebrew pe Mac, `jq` pe Linux), apoi pregătește engine-ul la pinul verificat.
 3. Walk you through a wizard: workspace name → control channel → Telegram bot handshake or Slack Socket Mode tokens.
 4. Install the Nova Cortex templates, spawn your Orchestrator, wire up the selected channel, and auto-start the agent.
 
@@ -96,15 +96,13 @@ The Orchestrator will walk you through identity, working hours, autonomy rules, 
 
 ### Restarting the Orchestrator later
 
-If you ever need to manually restart the agent:
+Pentru o recuperare controlată, folosește helper-ul din checkout-ul Nova; el verifică engine-ul și cere confirmare înaintea unui restart al daemonului existent:
 
 ```bash
-# Mac/Linux:
-cd ~/cortextos && cortextos start boss
-
-# Windows PowerShell:
-cd $env:USERPROFILE\cortextos; cortextos start boss
+node scripts/nova-engine.mjs start --org NUME_ORG --channel telegram
 ```
+
+Înlocuiește `telegram` cu `slack` când acesta este canalul configurat. Nu folosi `cortextos start boss` ca fallback și nu executa `pm2 save` direct: vezi ghidul de recuperare pentru refuzuri, CA și snapshot-uri PM2.
 
 ---
 
@@ -112,8 +110,8 @@ cd $env:USERPROFILE\cortextos; cortextos start boss
 
 | Path | Purpose |
 |------|---------|
-| `nova-prereq.sh` | Mac/Linux prereq checker — auto-installs Homebrew (Mac), jq, Node 20+, Claude Code, cortextOS, PM2. Idempotent. |
-| `nova-prereq.ps1` | Windows-native equivalent (PowerShell 5.1+). Installs Node via `winget`, Claude Code + cortextOS + PM2 via npm. Idempotent. |
+| `nova-prereq.sh` | Mac/Linux prereq checker — instalează/verifică Homebrew (Mac), jq, Node 20+, runtime-ul ales și PM2; apoi aplică verificarea strictă a engine-ului. Poate refuza o reluare pentru a păstra starea existentă. |
+| `nova-prereq.ps1` | Echivalent Windows (PowerShell 5.1+): instalează/verifică toolchain-ul și apoi verifică strict engine-ul; o reluare poate necesita intervenție, nu continuă automat. |
 | `nova-init.sh` | Mac/Linux student wizard. Picks runtime + workspace name + Telegram or Slack, then provisions the Orchestrator. |
 | `scripts/nova-doctor.sh` | Diagnoses installed orgs/agents: runtime, channel, credentials presence, and cortextOS status. |
 | `scripts/nova-runtime-switch.sh` | Safely switches an existing agent between Claude and Codex with backup, template overlay, and fresh restart. |
@@ -143,10 +141,11 @@ Want to fork this for your own brand?
 
 Nova Cortex is a **branding + curated-templates layer** on top of [cortextOS](https://github.com/grandamenium/cortextos). The actual multi-agent runtime, daemon, bus, knowledge base, and Telegram integration come from cortextOS — an open-source framework by Cortext LLC (MIT licensed). Nova Cortex supplies the Slack Socket Mode bridge, installation flow, and multiuser Slack access control.
 
-We don't fork cortextOS. We pin to its releases and ship our templates on top. That means cortextOS updates flow downstream automatically.
+Attribution for the original upstream project remains separate from the installer release source. Nova's safe installer currently pins a reviewed commit from the canonical installer fork; it does not follow `main` automatically and does not imply that the hotfix was merged upstream.
 
-- cortextOS source: https://github.com/grandamenium/cortextos
-- cortextOS license: MIT, Copyright (c) 2026 Cortext LLC
+- original cortextOS upstream: https://github.com/grandamenium/cortextos
+- original cortextOS license: MIT, Copyright (c) 2026 Cortext LLC
+- canonical engine source used by this installer: https://github.com/danutmitrut/cortextos.git (pinned revision documented in `docs/safe-engine-installer.md`)
 - Nova Cortex license: MIT, Copyright (c) 2026 Nova Academy
 
 ---

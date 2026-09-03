@@ -65,6 +65,39 @@ Trebuie validat:
 
 Pana cand testul este complet, ruta B ramane experimentala.
 
+## Gate de acceptare pentru installerul sigur
+
+**Status curent: NOT RUN.** Nu există o mașină Windows atașată acestei verificări. Parse-ul PowerShell de pe macOS nu validează execuția PowerShell 5.1 sau 7, PM2, named pipes, căi cu spații, TLS ori reboot pe Windows. Nu promova ruta Windows local ca validată până la completarea și consemnarea fiecărui rând de mai jos.
+
+În PowerShell 5.1 **și** PowerShell 7, rulează fără schimbarea Execution Policy:
+
+```powershell
+powershell.exe -NoProfile -File test\installer\windows-entrypoints.test.ps1
+pwsh.exe -NoProfile -File test\installer\windows-entrypoints.test.ps1
+```
+
+Nu folosi tokenuri reale în output, nu publica `.env`, certificate private, `pm2 jlist` sau dump-uri PM2 brute. Pentru fiecare eșec, păstrează numai codul, căile, SHA-ul și observația redactată.
+
+| Caz obligatoriu | Dovezi de consemnat | Status |
+|---|---|---|
+| PowerShell 5.1 și 7 | comanda, versiunea, exit code | NOT RUN |
+| instalare nouă și instalare existentă curată | root, SHA pin, receipt/build | NOT RUN |
+| cale de instalare cu spații | calea și rezultatul wrapper-elor `.cmd` | NOT RUN |
+| remote numit `upstream` | remote acceptat, fără redenumire | NOT RUN |
+| tracked/untracked dirty | refuz, fără reset/clean/stash | NOT RUN |
+| engine la același SHA, mai nou, divergent | verificare/refuz conform politicii | NOT RUN |
+| certificat rupt | refuz TLS, fără bypass | NOT RUN |
+| CA corect din shell ajunge în PM2 | cale CA validată și proces selectat | NOT RUN |
+| listă PM2 goală cu dump salvat | refuz și review operator, fără resurrect/save | NOT RUN |
+| aplicații PM2 fără legătură | consimțământ explicit pentru snapshot global | NOT RUN |
+| build/link eșuat | sursa/build raportate separat, fără restart | NOT RUN |
+
+### Telegram și reboot controlat
+
+Fără secrete, trimite mai întâi un mesaj scurt cu marker unic, apoi unul lung, multiline și cu emoji. Pentru fiecare, consemnează exact un inbound, blocul vizibil de mesaj nou, pornirea unui turn real și outbound-ul corelat. Nu deduce acceptarea doar din creșterea unui log.
+
+Înainte de reboot cere aprobarea explicită a proprietarului mașinii. După reboot verifică același root, SHA/build și cale CA în procesul selectat, apoi repetă cele două mesaje. `pm2 save` înseamnă numai snapshot pentru restaurare; nu este dovada unui serviciu Windows configurat la boot.
+
 ## Cerinte Pentru Masina Windows
 
 Ideal:
@@ -532,24 +565,13 @@ Dupa prereq, init ar trebui sa poata rula fara Administrator. Trebuie testat.
 
 ### Execution Policy
 
-Daca PowerShell blocheaza scriptul:
-
-```powershell
-Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
-```
+Nu modifica Execution Policy pentru testul installerului. Rulează exact comenzile `-NoProfile -File` din gate-ul de acceptare; dacă politica le blochează, consemnează blocajul și cere o decizie separată a operatorului.
 
 ### PM2 Persistenta
 
 PM2 pe Windows nu are acelasi model de startup ca Linux.
 
-Trebuie testat:
-
-```powershell
-pm2 save
-pm2 resurrect
-```
-
-si ce se intampla dupa restart Windows.
+`pm2 save` nu configurează automat pornirea Windows la boot. Nu rula `pm2 resurrect` ca remediere a unui dump găsit: verifică mai întâi dump-ul, identitatea aplicațiilor și aprobarea operatorului. Reboot-ul este test controlat doar după aprobarea explicită.
 
 ### Path-uri Cu Spatii
 

@@ -12,6 +12,7 @@ Fișierele importante:
 
 - `nova-prereq.ps1` / `nova-prereq.sh` — verifică și instalează dependențele automat
 - `nova-init.ps1` / `nova-init.sh` — wizardul de configurare (runtime, canal, credențiale)
+- `docs/safe-engine-installer.md` — refuzuri, recuperare controlată, CA și PM2
 - `docs/nova-cortex-slack-manifests.md` — manifeste JSON gata de copiat pentru Slack
 - `docs/slack-onboarding.md` — ghid detaliat pentru setup Slack
 
@@ -39,7 +40,7 @@ cd ~\nova-agents
 
 ## Pasul 2 — Rulează scriptul de prerequisite
 
-Spune utilizatorului că scriptul verifică automat ce e instalat și instalează ce lipsește. Nu trebuie să facă nimic manual.
+Spune utilizatorului că scriptul verifică dependențele și engine-ul. Poate instala ce lipsește, dar poate și opri reluarea pentru a păstra o instalare sau date existente; nu promite continuare automată.
 
 **Mac / Linux:**
 ```bash
@@ -296,7 +297,7 @@ Wizardul te va ghida: deschide bot-ul în Telegram (caută username-ul), trimite
 
 ## Verificare finală
 
-După instalare, rulează să confirmi că totul e în regulă:
+După instalare, verifică starea fără a expune secrete:
 
 ```bash
 cortextos bus list-agents
@@ -304,7 +305,9 @@ cortextos bus list-agents
 
 Ar trebui să apară `boss` cu status `online`.
 
-Dacă ceva nu merge:
+Dacă ceva nu merge, păstrează codul de refuz și căile afișate. Nu cere tokenuri, `.env`, dump-uri PM2 brute sau mediul complet al proceselor în chat. Pentru recuperare, urmează `docs/safe-engine-installer.md`; nu porni direct `cortextos start boss`, nu rula `pm2 save` direct și nu aplica reset/clean/stash automat.
+
+Pentru diagnostic local:
 
 ```bash
 pm2 logs          # loguri live ale agenților
@@ -315,4 +318,4 @@ pm2 status        # starea proceselor
 
 ## Note pentru re-rulare
 
-Scripturile sunt idempotente — safe de rulat de mai multe ori. Dacă o instalare anterioară a eșuat la jumătate, rulează din nou același script și va continua de unde a rămas.
+O reluare nu este declarată idempotentă. `prepare` refuză modificări Git tracked sau untracked, inclusiv template-uri copiate de wizard, și nu mută/șterge nimic automat. Separă codul actualizat de build-ul reușit și de runtime-ul pornit; datele existente nu sunt migrate. Pentru daemonul existent, helper-ul cere acord înainte de restart, iar pentru alte aplicații PM2 cere acord înainte de snapshotul global. `pm2 save` nu configurează singur pornirea Windows la boot.
