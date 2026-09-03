@@ -20,6 +20,8 @@ Specialist agents (anything domain-specific you need) are added later — the Or
 
 ## Quick start
 
+> **Windows local — în testare cu cursanții.** Noul installer este disponibil pentru testare, dar nu a fost încă validat pe Windows real (PowerShell 5.1/7, PM2/CA, mesaje Telegram și reboot). Rezultatele testelor locale nu înlocuiesc această validare. Folosește [protocolul Windows](docs/windows-test-plan.md); dacă apare un refuz, păstrează datele și raportează mesajul fără tokenuri sau fișiere `.env`.
+
 Pentru curs, instalarea are trei decizii:
 
 1. **Runtime:** Codex/OpenAI (recomandat) sau Claude Code.
