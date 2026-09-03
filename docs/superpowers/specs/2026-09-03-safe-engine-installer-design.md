@@ -1,6 +1,6 @@
 # Installer Nova Cortex: engine verificat și TLS/PM2 pe Windows
 
-Data: 2026-09-03. Status: politică aprobată în conversație; document pentru aprobarea finală, înainte de plan și cod.
+Data: 2026-09-03. Status: document aprobat explicit de Dan prin „aprob”; urmează planul și implementarea.
 
 ## Obiectiv
 
@@ -72,7 +72,7 @@ Raport scurt, fără secrete: calea engine-ului, SHA cerut și găsit, build reu
 - [x] Clarificarea scopului; comparația celor trei abordări.
 - [x] Aprobarea politicii de actualizare sigură și a includerii TLS/PM2.
 - [x] Specificație scrisă; verificată pentru contradicții, ambiguități și extindere nejustificată.
-- [ ] Aprobarea acestui document de către Dan.
+- [x] Aprobarea acestui document de către Dan.
 - [ ] Plan de implementare, apoi cod și teste.
 - [ ] Acceptare Windows și decizie de publicare.
 
