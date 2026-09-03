@@ -222,6 +222,8 @@ else
   nova_dim "Dacă scrii în alt canal, folosește @numele-app-ului; canalul dedicat acceptă mesaje directe către Boss."
 fi
 
+node "$SCRIPT_DIR/scripts/nova-engine.mjs" check || nova_fail "Verificarea engine-ului a eșuat înainte de configurare."
+
 # ─── Instalează template-urile Nova Cortex în directorul cortextOS ────────
 nova_step "Instalez template-urile de agenți Nova Cortex"
 
@@ -237,7 +239,12 @@ if [[ ! -d "$NOVA_TEMPLATES_SRC" ]]; then
   nova_fail "Template-urile Nova Cortex lipsesc de la $NOVA_TEMPLATES_SRC — re-cloneaza repo-ul nova-agents."
 fi
 
-# Copiază fiecare template Nova Cortex în directorul cortextOS (suprascrie versiunile vechi la re-rulare).
+# Never overwrite existing templates; normal reruns also refuse dirty prepare.
+for tmpl in "$NOVA_TEMPLATES_SRC"/nova-cortex-*; do
+  [[ -d "$tmpl" ]] || continue
+  TMPL_NAME=$(basename "$tmpl")
+  [[ ! -e "$CORTEXTOS_TEMPLATES/$TMPL_NAME" && ! -L "$CORTEXTOS_TEMPLATES/$TMPL_NAME" ]] || nova_fail "Template existent la $CORTEXTOS_TEMPLATES/$TMPL_NAME; păstrat fără suprascriere."
+done
 for tmpl in "$NOVA_TEMPLATES_SRC"/nova-cortex-*; do
   [[ -d "$tmpl" ]] || continue
   TMPL_NAME=$(basename "$tmpl")
@@ -254,6 +261,7 @@ nova_step "Construiesc echipa ta Nova Cortex"
 # vede la `cortextos start`. cd-uim explicit + exportam CTX_FRAMEWORK_ROOT
 # (respectat de add-agent.ts) ca sa fortam ambele comenzi sa scrie in locul
 # corect, indiferent de unde a fost lansat scriptul.
+(
 export CTX_FRAMEWORK_ROOT="$CORTEXTOS_HOME"
 cd "$CORTEXTOS_HOME"
 
@@ -271,7 +279,7 @@ else
 fi
 nova_ok "Nova Cortex Orchestrator creat"
 
-cd "$SCRIPT_DIR"
+)
 
 nova_say "Conectez canalul de control pentru Orchestratorul tău..."
 AGENT_ENV="$CORTEXTOS_HOME/orgs/$ORG/agents/boss/.env"
@@ -308,18 +316,12 @@ else
 fi
 
 # ─── Pornește Orchestratorul ──────────────────────────────────────────────
-# `cortextos start` foloseste process.cwd() ca sa gaseasca dist/daemon.js
-# (upstream start.ts:28). Wizard-ul ramane in $CORTEXTOS_HOME din pasul de
-# init/add-agent — nu mai cd-uim. Asta porneste daemon-ul via PM2 si
-# inregistreaza boss in enabled-agents.json.
+# Shared helper verifies receipt, runtime identity, consent and readiness.
 nova_step "Pornesc Orchestratorul tău"
 cd "$CORTEXTOS_HOME"
 nova_say "Pornesc daemon-ul + boss..."
-if cortextos start boss >/dev/null 2>&1; then
-  nova_ok "Boss e online"
-else
-  nova_warn "Auto-start a eșuat. Pornește manual: cd ~/cortextos && cortextos start boss"
-fi
+node "$SCRIPT_DIR/scripts/nova-engine.mjs" start --org "$ORG" --channel "$NOVA_CONTROL_CHANNEL" || nova_fail "Pornirea verificată a eșuat; integrarea și succesul final sunt oprite."
+nova_ok "Daemon și Boss verificate; schimbul de mesaje pe canal rămâne de testat."
 cd "$SCRIPT_DIR"
 
 # ─── Integrarea Slack Nova Cortex ───────────────────────────────────────
@@ -353,7 +355,10 @@ EOF
   nova_say "Pornesc bridge-ul cu PM2..."
   pm2 delete nova-slack-bridge >/dev/null 2>&1 || true
   (cd "$SLACK_BRIDGE_DIR" && pm2 start npm --name nova-slack-bridge -- start >/dev/null)
-  pm2 save >/dev/null 2>&1 || true
+  # Keep process environments inside the pipeline, never on the console.
+  set -o pipefail
+  pm2 jlist | node -e 'let s="";process.stdin.on("data",x=>s+=x);process.stdin.on("end",()=>{try{const p=JSON.parse(s).filter(x=>x.name==="nova-slack-bridge");process.exit(p.length===1&&p[0].pm2_env?.status==="online"?0:1)}catch{process.exit(1)}})' || nova_fail "Slack bridge nu este online; snapshot-ul nu a fost salvat."
+  node "$SCRIPT_DIR/scripts/nova-engine.mjs" save || nova_fail "Snapshot PM2 nesalvat; verificarea sau acordul necesar a eșuat."
   nova_ok "Integrarea Slack este online"
 fi
 
@@ -386,7 +391,7 @@ echo ""
 echo "  3. După ce Analystul e online, Orchestratorul tău te poate ajuta să adaugi"
 echo "     agenți specialiști (CFO, marketer, ops, research — tu alegi)."
 echo ""
-echo -e "  ${DIM}Pentru a reporni Orchestratorul oricând: ${CYAN}cd ~/cortextos && cortextos start boss${RESET}"
+echo -e "  ${DIM}Pornire verificată: ${CYAN}node \"$SCRIPT_DIR/scripts/nova-engine.mjs\" start --org \"$ORG\" --channel \"$NOVA_CONTROL_CHANNEL\"${RESET}"
 if [[ "$NOVA_CONTROL_CHANNEL" == "slack" ]]; then
   echo -e "  ${DIM}Pentru a reporni integrarea Slack: ${CYAN}pm2 restart nova-slack-bridge${RESET}"
 fi
