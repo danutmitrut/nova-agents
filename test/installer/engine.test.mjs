@@ -144,3 +144,31 @@ for(const kind of ['package','lock'])test(`accepted commit with invalid ${kind} 
   sg(['add','-A']);sg(['commit','-m','invalid package']);f.release.sha=sg(['rev-parse','HEAD']).stdout.trim();
   await assert.rejects(f.prepare());assert.ok(!f.commands.some(c=>c.includes('controlled-npm')));
 });
+const npmWindowsWrapper = [
+  '@ECHO off', 'GOTO start', ':find_dp0', 'SET dp0=%~dp0', 'EXIT /b',
+  ':start', 'SETLOCAL', 'CALL :find_dp0', '',
+  'IF EXIST "%dp0%\\node.exe" (', '  SET "_prog=%dp0%\\node.exe"',
+  ') ELSE (', '  SET "_prog=node"', '  SET PATHEXT=%PATHEXT:;.JS;=;%', ')', '',
+  'endLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & "%_prog%"  "%dp0%\\node_modules\\cortextos\\dist\\cli.js" %*', '',
+].join('\r\n');
+for (const stage of ['prepare', 'verify']) {
+  test(`${stage} rejects modified Windows shim despite correct adjacent package`, async t => {
+    const f = fixture(t);
+    await f.prepare();
+    const bin = join(f.source, '..', 'global-bin');
+    mkdirSync(join(bin, 'node_modules'), {recursive: true});
+    symlinkSync(f.root, join(bin, 'node_modules', 'cortextos'), 'junction');
+    const shim = join(bin, 'cortextos.cmd');
+    writeFileSync(shim, npmWindowsWrapper);
+    f.adapters.findTool = () => shim;
+    f.adapters.platform = 'win32';
+    // A valid npm wrapper and correct adjacency must still work.
+    await f.verify();
+    writeFileSync(shim, npmWindowsWrapper.replace('node_modules\\cortextos\\dist\\cli.js', 'other-checkout\\dist\\cli.js'));
+    const count = f.commands.length;
+    await assert.rejects(f[stage](), {code: 'GLOBAL_LINK_MISMATCH'});
+    assert.equal(f.commands.length, count);
+    writeFileSync(shim, npmWindowsWrapper + 'node other-checkout\\dist\\cli.js\r\n');
+    await assert.rejects(f[stage](), {code: 'GLOBAL_LINK_MISMATCH'});
+  });
+}
