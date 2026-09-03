@@ -15,6 +15,7 @@ function writeVersion(root, version) {
 /** Create an isolated Git source and a separate target clone for installer tests. */
 export function fixtureRepo(t) {
   const directory = mkdtempSync(join(tmpdir(), 'nova-install-test-'));
+  t.after(() => rmSync(directory, {recursive: true, force: true}));
   const source = join(directory, 'source');
   const root = join(directory, 'target');
   const commandOptions = {cwd: directory, env: process.env, timeoutMs: 5000};
@@ -34,7 +35,6 @@ export function fixtureRepo(t) {
   const newSha = sourceGit(['rev-parse', 'HEAD']).stdout.trim();
   run('git', ['clone', source, root], commandOptions);
 
-  t.after(() => rmSync(directory, {recursive: true, force: true}));
   const git = (args) => run('git', ['-C', root, ...args], commandOptions);
   return {
     source,

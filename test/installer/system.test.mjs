@@ -60,6 +60,23 @@ test('findTool resolves a POSIX symlink in a PATH directory with spaces', (t) =>
   assert.equal(findTool('nova-tool', {env: {PATH: bin}, platform: 'linux'}), realpathSync.native(real));
 });
 
+test('findTool ignores a non-executable regular POSIX PATH entry', (t) => {
+  const root = tempDir(t);
+  const bin = join(root, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'nova-tool'), 'not executable');
+
+  assert.equal(findTool('nova-tool', {env: {PATH: bin}, platform: 'linux'}), null);
+});
+
+test('findTool ignores a directory that has a POSIX tool name', (t) => {
+  const root = tempDir(t);
+  const bin = join(root, 'bin');
+  mkdirSync(join(bin, 'nova-tool'), {recursive: true});
+
+  assert.equal(findTool('nova-tool', {env: {PATH: bin}, platform: 'linux'}), null);
+});
+
 test('samePath compares resolved POSIX paths', (t) => {
   const root = tempDir(t);
   const real = join(root, 'real-tool');
@@ -128,6 +145,20 @@ test('release validation rejects a noncanonical remote', () => {
     ref: 'refs/heads/fix/windows-telegram-submit-main-integration',
     sha: 'ee7f06f2ad687237db670118f6cdf7c6792c1572',
   }), {code: 'INVALID_RELEASE_REPOSITORY'});
+});
+
+test('release validation accepts exact GitHub SSH remotes with and without .git', () => {
+  for (const repo of [
+    'git@github.com:danutmitrut/cortextos',
+    'git@github.com:danutmitrut/cortextos.git',
+  ]) {
+    assert.equal(validateRelease({
+      schema: 1,
+      repo,
+      ref: 'refs/heads/fix/windows-telegram-submit-main-integration',
+      sha: 'ee7f06f2ad687237db670118f6cdf7c6792c1572',
+    }).repo, repo);
+  }
 });
 
 test('release validation rejects a ref that only begins with a valid namespace', () => {

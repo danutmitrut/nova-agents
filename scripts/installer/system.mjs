@@ -1,4 +1,4 @@
-import {existsSync, realpathSync, readFileSync} from 'node:fs';
+import {accessSync, constants, existsSync, realpathSync, readFileSync, statSync} from 'node:fs';
 import {delimiter, dirname, join, resolve} from 'node:path';
 import {spawnSync} from 'node:child_process';
 
@@ -48,13 +48,25 @@ function pathParts(env, platform) {
   return pathValue.split(platform === 'win32' ? ';' : delimiter).filter(Boolean);
 }
 
+function isPosixExecutable(path) {
+  try {
+    if (!statSync(path).isFile()) return false;
+    accessSync(path, constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Find a tool only from the supplied PATH, resolving POSIX symlinks. */
 export function findTool(name, {env = process.env, platform = process.platform} = {}) {
   const candidates = platform === 'win32' ? [`${name}.exe`, `${name}.cmd`, name] : [name];
   for (const directory of pathParts(env, platform)) {
     for (const candidate of candidates) {
       const discovered = join(directory, candidate);
-      if (existsSync(discovered)) return platform === 'win32' ? resolve(discovered) : safePath(discovered);
+      if (!existsSync(discovered)) continue;
+      if (platform === 'win32') return resolve(discovered);
+      if (isPosixExecutable(discovered)) return safePath(discovered);
     }
   }
   return null;
@@ -96,7 +108,7 @@ export function samePath(a, b) {
 }
 
 function canonicalRepository(remote) {
-  if (remote === `git@github.com:${CANONICAL_REPOSITORY}.git`) return true;
+  if (remote === `git@github.com:${CANONICAL_REPOSITORY}` || remote === `git@github.com:${CANONICAL_REPOSITORY}.git`) return true;
   try {
     const url = new URL(remote);
     if (url.protocol !== 'https:' || url.username || url.password || url.hostname !== 'github.com' || url.port || url.search || url.hash) return false;
