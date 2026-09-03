@@ -253,11 +253,11 @@ node "$SCRIPT_DIR/scripts/nova-engine.mjs" prepare || nova_fail 'Verificarea eng
 
 **Consumes:** final CLI behavior and actual test evidence. **Produces:** reviewable local change, commands for field acceptance, no release by default.
 
-- [ ] Document the four helper commands, pin policy, dirty/template refusal, build-vs-runtime distinction, exact paths shown for troubleshooting, `.cmd` guidance, safe CA configuration, and empty PM2-list/dump recovery requiring operator review. Never advise posting tokens or raw dumps into chat.
-- [ ] Remove blanket “idempotent, always continues automatically” claims from README/CLAUDE; explain safe refusal. Distinguish code update from data migration and `pm2 save` from a configured Windows boot service.
-- [ ] Add this manual Windows test matrix to `docs/windows-test-plan.md`: PowerShell 5.1 and 7; fresh and clean-existing install; custom install path with spaces; `upstream` remote; dirty tracked/untracked refusal; same/newer/diverged engine; broken certificate; correct shell CA propagated to PM2; empty PM2 list with saved dump; unrelated app snapshot consent; build/link failure without restart.
-- [ ] Record Telegram acceptance without real secrets: short unique marker and long multiline/emoji message, exactly one inbound and visible new-message block, real turn start and correlated outbound. Get explicit approval before reboot, then verify the same build/root/CA and repeat. If no Windows machine is attached, mark this matrix NOT RUN and do not call Windows behavior fully validated.
-- [ ] Run local verification:
+- [x] Document the four helper commands, pin policy, dirty/template refusal, build-vs-runtime distinction, exact paths shown for troubleshooting, `.cmd` guidance, safe CA configuration, and empty PM2-list/dump recovery requiring operator review. Never advise posting tokens or raw dumps into chat.
+- [x] Remove blanket “idempotent, always continues automatically” claims from README/CLAUDE; explain safe refusal. Distinguish code update from data migration and `pm2 save` from a configured Windows boot service.
+- [x] Add this manual Windows test matrix to `docs/windows-test-plan.md`: PowerShell 5.1 and 7; fresh and clean-existing install; custom install path with spaces; `upstream` remote; dirty tracked/untracked refusal; same/newer/diverged engine; broken certificate; correct shell CA propagated to PM2; empty PM2 list with saved dump; unrelated app snapshot consent; build/link failure without restart.
+- [x] Record Telegram acceptance without real secrets: short unique marker and long multiline/emoji message, exactly one inbound and visible new-message block, real turn start and correlated outbound. Get explicit approval before reboot, then verify the same build/root/CA and repeat. If no Windows machine is attached, mark this matrix NOT RUN and do not call Windows behavior fully validated.
+- [x] Run local verification:
 
 ```sh
 node --test test/installer/*.test.mjs slack-bridge/test/allowlist.test.js
@@ -276,8 +276,15 @@ Use Node 20 as an additional supported-floor test if available. On Windows run `
 - [x] Distinct outcomes for source updated/build failed, daemon started/save refused and field test not run.
 - [x] Preserved node-pty POSIX executable repair and identified fresh state setup as a required compatibility check.
 - [x] No engine merge, student reinstall, antivirus change or remote write in local implementation scope.
-- [ ] Execution mode and worktree consent selected.
-- [ ] Tasks 1–5 implemented and locally verified.
+- [x] Execution mode and worktree consent selected.
+- [x] Tasks 1–5 implemented and locally verified.
+- [ ] Independent Task 5 review and final whole-branch review/finishing completed.
 - [ ] Windows/Telegram/reboot acceptance completed on an explicitly authorized test machine.
 
-At plan handoff, production installer code is unchanged. Plan examples specify interfaces and observable cases; implementations and tests must still pass the red/green cycle in their owning task.
+## Implementation results (2026-09-03)
+
+- [x] Tasks 1–4 are implemented and their scoped reviews are clean; their final entrypoint commit is `72fa9ba`.
+- [x] Task 5 documentation is written in `b27f7cb`; its scoped independent review is pending.
+- [x] Controller verified `node --test test/installer/*.test.mjs slack-bridge/test/allowlist.test.js` at `72fa9ba`: 101 passed, 0 failed, 1 native-Windows skip. Bash syntax, available PowerShell parser checks, and `git diff --check` also passed.
+- [ ] Final whole-branch review and finishing decision are pending; no push, merge, release, service operation, or student-machine change is authorized by this result.
+- [ ] Native Windows PowerShell 5.1/7, Node 20, real Telegram marker roundtrip, and approved-reboot persistence remain acceptance gates. They are **NOT RUN**, not validated behavior.
