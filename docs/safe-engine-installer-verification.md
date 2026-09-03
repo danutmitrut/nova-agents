@@ -205,3 +205,24 @@ Host Node (`node --version`): `v25.9.0`. Local PowerShell is macOS 7.6.5; its re
 - Native harness adds original-value/absence observation outside complete script calls; portable tests separately inspect actual finally behavior. Native execution still **NOT RUN**; actual Windows 5.1/7 new/upgrade runs, real CA propagation, and long/multiline/emoji Telegram exchanges require the previously approved acceptance workflow.
 - Reboot/autostart and publication require separate explicit authorization. No attempt made to treat passing local tests as those gates.
 - No architecture uncertainty requiring expansion remained. Controller's one scoped re-review is next; do not replay completed task waves.
+
+## Controller final handoff — 2026-09-03
+
+The final reviewer inspected `d3e32c9..a633c06` and marked all four actual findings ADDRESSED: legitimate Windows PM2 metadata, Node-only Slack selection, environment sentinel coverage, and allowlisted phase reporting. No new Critical/Important issue remained. The earlier shell recovery-quoting allegation was retracted after source verification; the quotes were already correct.
+
+Independent controller verification at `a633c06e2ac04952c7392fd97572f2e507f013fd`:
+
+```text
+node --test test/installer/*.test.mjs slack-bridge/test/allowlist.test.js
+tests 129; pass 128; fail 0; skipped 1; exit 0; duration 22540.056292 ms
+bash -n nova-prereq.sh nova-init.sh
+exit 0, no output
+git diff --check
+exit 0, no output
+```
+
+The same run included actual portable PowerShell selector/cleanup block tests. Parser checks additionally passed for `nova-prereq.ps1`, `nova-init.ps1`, and `test/installer/windows-entrypoints.test.ps1` using macOS PowerShell 7.6.5. IPC test permission was limited in purpose to the disposable test socket; no real service was accessed. Node was v25.9.0.
+
+Verdict: approved for **local implementation handoff**, not production Windows acceptance. Native Windows PowerShell 5.1/7, Node20, real PM2/CA integration, short and long/multiline/emoji channel roundtrips and approved-reboot persistence remain **NOT RUN**. Publication, merge and PR still require a separate user decision.
+
+Branch `fix/safe-engine-installer` and its worktree are retained. The base checkout `main` remained clean at `c2d2e2d`; no external write or student-machine operation was performed. Final documentation-only status updates do not change the tested executable code.

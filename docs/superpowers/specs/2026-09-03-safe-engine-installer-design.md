@@ -1,6 +1,6 @@
 # Installer Nova Cortex: engine verificat și TLS/PM2 pe Windows
 
-Data: 2026-09-03. Status: document aprobat explicit de Dan prin „aprob”; urmează planul și implementarea.
+Data: 2026-09-03. Status: aprobat explicit de Dan prin „aprob”; implementare locală și review încheiate. Acceptarea Windows și publicarea rămân separate, neefectuate.
 
 ## Obiectiv
 
@@ -73,7 +73,7 @@ Raport scurt, fără secrete: calea engine-ului, SHA cerut și găsit, build reu
 - [x] Aprobarea politicii de actualizare sigură și a includerii TLS/PM2.
 - [x] Specificație scrisă; verificată pentru contradicții, ambiguități și extindere nejustificată.
 - [x] Aprobarea acestui document de către Dan.
-- [ ] Plan de implementare, apoi cod și teste.
+- [x] Plan de implementare, apoi cod și teste locale; review final fără observații blocante rămase.
 - [ ] Acceptare Windows și decizie de publicare.
 
-Companionul vizual nu este necesar pentru aceste decizii. La acest checkpoint se modifică numai documentația; installerul nu este încă reparat.
+Companionul vizual nu este necesar pentru aceste decizii. Rezultatul local și limitele verificării sunt consemnate în `docs/safe-engine-installer-verification.md`; nu echivalează cu validarea pe Windows real sau cu publicarea installerului.
