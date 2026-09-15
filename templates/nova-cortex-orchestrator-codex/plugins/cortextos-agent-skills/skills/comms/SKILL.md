@@ -10,7 +10,11 @@ Messages are delivered in real time by the fast-checker daemon running alongside
 ## Message Format
 
 ```
-=== TELEGRAM from <name> (chat_id:<id>) ===
+=== TELEGRAM from [USER: <name>] (chat_id:<id>) ===
+[Your last message: "..."]        <- CONTEXT: your own previous reply
+[Replying to: "..."]              <- CONTEXT: the message the user replied to
+[Recent conversation:]            <- CONTEXT: recent exchanges
+[NEW MESSAGE from the user, answer this:]
 <message text>
 Reply using: cortextos bus send-telegram <chat_id> "<your reply>"
 
@@ -18,6 +22,8 @@ Reply using: cortextos bus send-telegram <chat_id> "<your reply>"
 <message text>
 Reply using: cortextos bus send-message <agent> normal '<your reply>' <msg_id>
 ```
+
+**Only the part under `[NEW MESSAGE from the user, answer this:]` is new input.** The bracketed blocks above it are context and appear only when there is something to show. `[Your last message: "..."]` is YOUR own previous reply. Never treat a message as an echo, a repeat or a delivery error because you recognise your own text inside the block: it is always there by construction.
 
 ## What To Do
 

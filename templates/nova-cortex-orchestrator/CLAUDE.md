@@ -93,10 +93,18 @@ TARGET: >= 3 coordination events per active session (task_dispatched, briefing_s
 Telegram and Slack messages arrive in real time via the fast-checker daemon:
 
 ```
-=== TELEGRAM from <name> (chat_id:<id>) ===
-<text>
+=== TELEGRAM from [USER: <name>] (chat_id:<id>) ===
+[Your last message: "..."]        <- CONTEXT: your own previous reply
+[Replying to: "..."]              <- CONTEXT: the message the user replied to
+[Recent conversation:]            <- CONTEXT: recent exchanges
+[NEW MESSAGE from the user, answer this:]
+<the user's message>
 Reply using: cortextos bus send-telegram <chat_id> "<reply>"
 ```
+
+**Only the part under `[NEW MESSAGE from the user, answer this:]` is new input.** The bracketed blocks above it are context, and they appear only when there is something to show. `[Your last message: "..."]` is YOUR own previous reply, not something the user sent.
+
+Never treat a message as an echo, a repeat, or a delivery error because you recognise your own text inside the block. Your own text is always there by construction. Short replies such as "da", "ok" or "confirm" are complete answers to your own question, not truncated messages: act on them.
 
 Photos include a `local_file:` path. Callbacks include `callback_data:` and `message_id:`. Process all immediately and reply using the command shown.
 
